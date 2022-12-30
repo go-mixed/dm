@@ -24,6 +24,23 @@ func BuildTableName(schema, table string, cols []schema.TableColumn) string {
 	return fmt.Sprintf("%s.%s.%s", schema, table, text_utils.Md5(sb.String()))
 }
 
+func SplitTableName(tableName string) (string, string) {
+	segments := strings.SplitN(tableName, ".", 2)
+	if len(segments) == 2 {
+		return segments[0], segments[1]
+	}
+	return "", tableName
+}
+
+func CleanTableName(tableName string) string {
+	switch strings.Count(tableName, ".") {
+	case 2:
+		return tableName[:strings.LastIndex(tableName, ".")]
+	default:
+		return tableName
+	}
+}
+
 func BuildEventKey(id uint64, schema, table string, action string) string {
 	if schema == "" && table == "" {
 		return fmt.Sprintf("%020d/", id)
@@ -52,46 +69,81 @@ func AbsSub[T constraints.Integer | constraints.Float](a, b T) T {
 	return b - a
 }
 
-func DiffCols(cols1 []any, cols2 []any, columns []schema.TableColumn) []int {
-	var colIndices []int
+func ToRowMap(cols []any, columns []schema.TableColumn) map[string]any {
+	_cols := map[string]any{}
+	for i, col := range columns {
+		_cols[col.Name] = cols[i]
+	}
+	return _cols
+}
+
+func IsColEmpty(colType int, val any) bool {
+	if val == nil {
+		return true
+	}
+	switch colType {
+	case schema.TYPE_MEDIUM_INT, schema.TYPE_FLOAT, schema.TYPE_NUMBER, schema.TYPE_DECIMAL:
+		return val == 0
+	case schema.TYPE_DATETIME, schema.TYPE_DATE, schema.TYPE_TIME, schema.TYPE_TIMESTAMP:
+		return val == ""
+	case schema.TYPE_STRING, schema.TYPE_ENUM, schema.TYPE_SET, schema.TYPE_BINARY, schema.TYPE_BIT:
+		_v, ok := val.(string)
+		if ok {
+			return _v == ""
+		}
+		_b, ok := val.([]byte)
+		if ok {
+			return len(_b) <= 0
+		}
+	}
+
+	return false
+}
+
+func IsColValueEqual(colType int, v1, v2 any) bool {
+	same := true
+	switch colType {
+	case schema.TYPE_MEDIUM_INT, schema.TYPE_FLOAT, schema.TYPE_NUMBER, schema.TYPE_DECIMAL:
+		same = v1 == v2
+	case schema.TYPE_DATETIME, schema.TYPE_DATE, schema.TYPE_TIME, schema.TYPE_TIMESTAMP:
+		same = v1 == v2
+	case schema.TYPE_STRING, schema.TYPE_ENUM, schema.TYPE_SET, schema.TYPE_BINARY, schema.TYPE_BIT:
+		_, ok1 := v1.(string)
+		_, ok2 := v2.(string)
+		if v1 == nil && v2 == nil {
+			same = true
+		} else if (v1 == nil && v2 != nil) || (v1 != nil && v2 == nil) {
+			same = false
+		} else if ok1 || ok2 {
+			same = v1 == v2
+		} else {
+			same = bytes.Compare(v1.([]byte), v2.([]byte)) != 0
+		}
+	case schema.TYPE_POINT:
+		// Todo
+		same = true
+	}
+
+	return same
+}
+
+func DiffCols(cols1 []any, cols2 []any, columns []schema.TableColumn) []string {
+	var colNames []string
 	l1 := len(cols1)
 	l2 := len(cols2)
 
-	same := true
 	for i := 0; i < Min(l1, l2); i++ {
 		v1 := cols1[i]
 		v2 := cols2[i]
 
-		switch columns[i].Type {
-		case schema.TYPE_MEDIUM_INT, schema.TYPE_FLOAT, schema.TYPE_NUMBER, schema.TYPE_DECIMAL:
-			same = v1 == v2
-		case schema.TYPE_DATETIME, schema.TYPE_DATE, schema.TYPE_TIME, schema.TYPE_TIMESTAMP:
-			same = v1 == v2
-		case schema.TYPE_STRING, schema.TYPE_ENUM, schema.TYPE_SET, schema.TYPE_BINARY, schema.TYPE_BIT:
-			_, ok1 := v1.(string)
-			_, ok2 := v2.(string)
-			if v1 == nil && v2 == nil {
-				same = true
-			} else if (v1 == nil && v2 != nil) || (v1 != nil && v2 == nil) {
-				same = false
-			} else if ok1 || ok2 {
-				same = v1 == v2
-			} else {
-				same = bytes.Compare(v1.([]byte), v2.([]byte)) != 0
-			}
-		case schema.TYPE_POINT:
-			// Todo
-			same = true
-		}
-
-		if !same {
-			colIndices = append(colIndices, i)
+		if !IsColValueEqual(columns[i].Type, v1, v2) {
+			colNames = append(colNames, columns[i].Name)
 		}
 	}
 
 	for i := Min(l1, l2); i < Max(l1, l2); i++ {
-		colIndices = append(colIndices, i)
+		colNames = append(colNames, columns[i].Name)
 	}
 
-	return colIndices
+	return colNames
 }

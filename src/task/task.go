@@ -93,7 +93,7 @@ func (t *Task) consumer(taskId uint64) {
 	var events []consumer.RowEvent
 
 	t.Storage.EventForEach(common.BuildEventKey(t.nextConsumeEventID, "", "", ""), func(key string, event consumer.RowEvent) bool {
-		t.Logger.Debug(fmt.Sprintf("------%d------%s----", taskId, key))
+		t.Logger.Debug("[Task]read event from storage", zap.Uint64("task-id", taskId), zap.String("key", key))
 		rule := t.Settings.TaskOptions.MatchRule(event.Schema, event.Table)
 		if rule == nil { // 无rule匹配项，继续循环
 			keyEnd = key

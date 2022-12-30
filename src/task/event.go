@@ -25,7 +25,7 @@ func (t *Task) OnRow(e *canal.RowsEvent) error {
 	n := len(e.Rows)
 	var rowEvents []consumer.RowEvent
 
-	alias, _ := t.Storage.GetTable(e.Table)
+	alias := t.Storage.SaveAndGetTableAlias(e.Table)
 
 	switch e.Action {
 	case canal.InsertAction:
@@ -36,9 +36,9 @@ func (t *Task) OnRow(e *canal.RowsEvent) error {
 				Table:  e.Table.Name,
 				Alias:  alias,
 
-				OldRow:                 nil,
-				NewRow:                 e.Rows[i],
-				DifferentColumnIndices: common.DiffCols(nil, e.Rows[i], e.Table.Columns),
+				OldRow:   nil,
+				NewRow:   common.ToRowMap(e.Rows[i], e.Table.Columns),
+				DiffCols: nil,
 			})
 		}
 	case canal.DeleteAction:
@@ -49,9 +49,9 @@ func (t *Task) OnRow(e *canal.RowsEvent) error {
 				Table:  e.Table.Name,
 				Alias:  alias,
 
-				OldRow:                 e.Rows[i],
-				NewRow:                 nil,
-				DifferentColumnIndices: common.DiffCols(e.Rows[i], nil, e.Table.Columns),
+				OldRow:   common.ToRowMap(e.Rows[i], e.Table.Columns),
+				NewRow:   nil,
+				DiffCols: nil,
 			})
 		}
 	case canal.UpdateAction:
@@ -62,9 +62,9 @@ func (t *Task) OnRow(e *canal.RowsEvent) error {
 				Table:  e.Table.Name,
 				Alias:  alias,
 
-				OldRow:                 e.Rows[i],
-				NewRow:                 e.Rows[i+1],
-				DifferentColumnIndices: common.DiffCols(e.Rows[i], e.Rows[i+1], e.Table.Columns),
+				OldRow:   common.ToRowMap(e.Rows[i], e.Table.Columns),
+				NewRow:   common.ToRowMap(e.Rows[i+1], e.Table.Columns),
+				DiffCols: common.DiffCols(e.Rows[i], e.Rows[i+1], e.Table.Columns),
 			})
 		}
 	}

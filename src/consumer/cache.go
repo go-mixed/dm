@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+type KV struct {
+	Key   string
+	Value []byte
+}
+
+type KVs []*KV
+
 type IL2Cache interface {
 	Get(key string, expire time.Duration, actual any) ([]byte, error)
 	MGet(keys []string, expire time.Duration, actual any) (KVs, error)

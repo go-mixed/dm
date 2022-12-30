@@ -109,11 +109,21 @@ func (s *Storage) ReadTables() {
 	}
 }
 
-func (s *Storage) GetTable(table *schema.Table) (string, *schema.Table) {
+// GetTable 通过别名获取table的结构
+func (s *Storage) GetTable(alias string) *schema.Table {
+	table, ok := s.tables[alias]
+	if !ok {
+		table, _ = s.tables[common.CleanTableName(alias)]
+	}
+	return table
+}
+
+// SaveAndGetTableAlias 保存当前table，并返回别名
+func (s *Storage) SaveAndGetTableAlias(table *schema.Table) string {
 	tableName := common.BuildTableName(table.Schema, table.Name, table.Columns)
 
-	if t, ok := s.tables[tableName]; ok {
-		return tableName, t
+	if _, ok := s.tables[tableName]; ok {
+		return tableName
 	}
 
 	s.tables[tableName] = table                                            // 存储table的快照结构
@@ -123,9 +133,10 @@ func (s *Storage) GetTable(table *schema.Table) (string, *schema.Table) {
 		s.logger.Error("[Storage]table write to storage error", zap.Error(err))
 	}
 
-	return tableName, table
+	return tableName
 }
 
+// SaveEvents 保存binlog事件到storage
 func (s *Storage) SaveEvents(events []consumer.RowEvent) {
 	if len(events) <= 0 {
 		return
@@ -157,12 +168,14 @@ func (s *Storage) SaveEvents(events []consumer.RowEvent) {
 	s.logger.Info(fmt.Sprintf("[Storage]writed %d events of \"%s\"", len(events), events[0].Action))
 }
 
+// ClearEvents 清除在storage中所有binlog事件
 func (s *Storage) ClearEvents() {
 	if err := s.bolt.Bucket(common.StorageEvents).Clear(); err != nil {
 		s.logger.Error("[Storage]clear events bucket error", zap.Error(err))
 	}
 }
 
+// EventCount 当前在storage中缓存的binlog事件数量
 func (s *Storage) EventCount() uint64 {
 	return uint64(s.bolt.Bucket(common.StorageEvents).Count())
 }

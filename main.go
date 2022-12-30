@@ -112,7 +112,7 @@ func export(components *component.Components) {
 	consumer.SetLogger(components.Logger)
 	consumer.SetRedis(components.Target.Redis)
 	consumer.SetEtcd(components.Target.Etcd)
-
+	consumer.SetGetTableFn(components.Storage.GetTable)
 	consumer.Export()
 }
 
