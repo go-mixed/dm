@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"github.com/fly-studio/dm/src/consumer"
 )
 
-func Consumer(events []consumer.RowEvent) {
-	fmt.Printf("redis: %t\n", redis)
-	fmt.Printf("etcd: %t\n", etcd)
+func Consumer(events []consumer.RowEvent, args []string) error {
+	logger.Debugf("consumer row events: %d\n", len(events))
 
-	fmt.Printf("row events: %d\n", len(events))
+	err := redis.SetNoExpiration("test", "value")
+
+	return err
 }

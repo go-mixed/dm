@@ -18,10 +18,10 @@ type Settings struct {
 
 func LoadSettings(confPath string) (*Settings, error) {
 	conf := &Settings{
-		MySqlOptions: defaultMySqlOptions(),
-		//DumplingOptions: defaultDumplingOptions(),
-		TaskOptions:   defaultTaskOptions(),
-		TargetOptions: defaultTargetOptions(),
+		MySqlOptions:    defaultMySqlOptions(),
+		DumplingOptions: defaultDumplingOptions(),
+		TaskOptions:     defaultTaskOptions(),
+		TargetOptions:   defaultTargetOptions(),
 
 		Storage:       filepath.Join(io_utils.GetCurrentDir(), "storage"),
 		LoggerOptions: utils.DefaultLoggerOptions(),

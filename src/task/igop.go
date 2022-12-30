@@ -20,6 +20,7 @@ func buildIgop(path string, debug bool) (*mod.Context, error) {
 	return ctx, nil
 }
 
+// 每一次运行都是全新的会话，即上一个运行的变量结果无法被下一个调用
 func igopCall(ctx *mod.Context, method string, args []igop.Value) (igop.Value, error) {
 	interp, err := ctx.NewInterp(ctx.GetMainPackage())
 	if err != nil {
@@ -32,6 +33,9 @@ func igopCall(ctx *mod.Context, method string, args []igop.Value) (igop.Value, e
 		}
 	}
 
-	v, err := interp.RunFunc(method, args)
-	return v, errors.Wrapf(err, "[igop]run \"%s\" error with arguments: %+v", method, args)
+	v, err := interp.RunFunc(method, args...)
+	if err != nil {
+		return v, errors.Wrapf(err, "[igop]run \"%s\" error", method)
+	}
+	return v, nil
 }

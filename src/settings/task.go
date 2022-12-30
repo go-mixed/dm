@@ -70,8 +70,19 @@ func (o *TaskOptions) GetTablePatterns() []string {
 	return patterns
 }
 
+func (o *TaskOptions) MatchRule(schema, table string) *RuleOptions {
+	_t := common.BuildTableName(schema, table, nil)
+	for _, rule := range o.Rules {
+		if rule.Match(_t) {
+			return rule
+		}
+	}
+
+	return nil
+}
+
 func (o *TaskOptions) MatchRules(schema, table string) []*RuleOptions {
-	_t := schema + "." + table
+	_t := common.BuildTableName(schema, table, nil)
 	var rules []*RuleOptions
 	for _, rule := range o.Rules {
 		if rule.Match(_t) {

@@ -21,6 +21,9 @@ func NewTarget(settings *settings.Settings, logger *utils.Logger) *Target {
 	return &Target{
 		settings: settings,
 		logger:   logger,
+
+		Redis: nil,
+		Etcd:  nil,
 	}
 }
 

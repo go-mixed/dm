@@ -24,6 +24,13 @@ func BuildTableName(schema, table string, cols []schema.TableColumn) string {
 	return fmt.Sprintf("%s.%s.%s", schema, table, text_utils.Md5(sb.String()))
 }
 
+func BuildEventKey(id uint64, schema, table string, action string) string {
+	if schema == "" && table == "" {
+		return fmt.Sprintf("%020d/", id)
+	}
+	return fmt.Sprintf("%020d/%s/%s", id, BuildTableName(schema, table, nil), action)
+}
+
 func Max[T constraints.Integer | constraints.Float](a, b T) T {
 	if a >= b {
 		return a

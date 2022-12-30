@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/fly-studio/dm/src/common"
 	"github.com/fly-studio/dm/src/component"
 	"github.com/fly-studio/dm/src/consumer"
 	"github.com/fly-studio/dm/src/mysql"
@@ -16,7 +15,6 @@ import (
 	"go-common/utils/io"
 	"go.uber.org/zap"
 	"path/filepath"
-	"reflect"
 )
 
 func main() {
@@ -111,11 +109,11 @@ func runTask(components *component.Components) {
 }
 
 func export(components *component.Components) {
-	consumer.Export(map[string]reflect.Value{
-		"Logger": reflect.ValueOf(consumer.ILogger(components.Logger.Sugar())),
-		"Redis":  reflect.ValueOf(common.ToConsumerICache(components.Target.Redis)),
-		"Etcd":   reflect.ValueOf(common.ToConsumerICache(components.Target.Etcd)),
-	})
+	consumer.SetLogger(components.Logger)
+	consumer.SetRedis(components.Target.Redis)
+	consumer.SetEtcd(components.Target.Etcd)
+
+	consumer.Export()
 }
 
 func run(_configFile, _logPath string) {

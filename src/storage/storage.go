@@ -14,7 +14,6 @@ import (
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 	"path/filepath"
-	"sync"
 )
 
 type Storage struct {
@@ -25,10 +24,7 @@ type Storage struct {
 
 	tables map[string]*schema.Table
 
-	latestID       uint64
-	exportingCount uint64
-
-	mutex sync.Mutex
+	latestID uint64
 }
 
 func NewStorage(settings *settings.Settings, logger *utils.Logger) (*Storage, error) {
@@ -46,7 +42,6 @@ func NewStorage(settings *settings.Settings, logger *utils.Logger) (*Storage, er
 		tables:   make(map[string]*schema.Table),
 
 		latestID: 0,
-		mutex:    sync.Mutex{},
 	}, nil
 }
 
@@ -101,7 +96,7 @@ func (s *Storage) GetLatestBinLogPosition(currentBinLog common.BinLogPosition) c
 }
 
 func (s *Storage) ReadTables() {
-	if err := s.bolt.Bucket(common.StorageTables).ForEach(func(kv utils.KV) error {
+	if _, err := s.bolt.Bucket(common.StorageTables).ForEach(func(bucket *bbolt.Bucket, kv *utils.KV) error {
 		var table schema.Table
 		if err := text_utils.GobDecode(kv.Value, &table); err != nil {
 			s.logger.Error(fmt.Sprintf("[Storage]read table \"%s\" error", kv.Key), zap.Error(err))
@@ -141,7 +136,7 @@ func (s *Storage) SaveEvents(events []consumer.RowEvent) {
 			if err != nil {
 				return errors.WithStack(err)
 			}
-			key := fmt.Sprintf("%020d/%s/%s", id, common.BuildTableName(event.Schema, event.Table, nil), event.Action)
+			key := common.BuildEventKey(id, event.Schema, event.Table, event.Action)
 			event.ID = id
 
 			buf, err := text_utils.GobEncode(event)
@@ -174,4 +169,33 @@ func (s *Storage) EventCount() uint64 {
 
 func (s *Storage) LatestID() uint64 {
 	return s.latestID
+}
+
+func (s *Storage) EventForEach(keyStart string, callback func(key string, event consumer.RowEvent) bool) string {
+	nextKey, _, err := s.bolt.Bucket(common.StorageEvents).RangeCallback(keyStart, "", "", int64(s.settings.TaskOptions.MaxBulkSize), func(bucket *bbolt.Bucket, kv *utils.KV) error {
+		var event consumer.RowEvent
+		if err := text_utils.GobDecode(kv.Value, &event); err != nil {
+			return err
+		}
+		if !callback(kv.Key, event) { // 返回false跳出循环
+			return storage.ErrForEachBreak
+		}
+
+		return nil
+	})
+
+	if err != nil && !errors.Is(err, storage.ErrForEachBreak) {
+		s.logger.Error("[Storage]for each of event error", zap.Error(err))
+	}
+
+	return nextKey
+}
+
+func (s *Storage) DeleteEventsTo(toKey string) {
+	n, err := s.bolt.Bucket(common.StorageEvents).BatchDeleteRange("", toKey, "")
+	if err != nil {
+		s.logger.Error("[Storage]delete events error", zap.Error(err))
+	} else {
+		s.logger.Debug(fmt.Sprintf("[Storage]deleted %d events to key: %s", n, toKey))
+	}
 }
