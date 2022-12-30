@@ -73,9 +73,9 @@ func AnyToUint64(val any) uint64 {
 	case uint32:
 		i = val.(uint64)
 	case string:
-		i = uint64(Atoi64(val.(string), 0))
+		i = Atou64(val.(string), 0)
 	case []byte:
-		i = uint64(Atoi64(string(val.([]byte)), 0))
+		i = Atou64(string(val.([]byte)), 0)
 	default:
 	}
 
@@ -169,7 +169,7 @@ func AnyToString(val any) string {
 	case int64, int, uint16, int8, int16, int32:
 		s = I64toa(AnyToInt64(val))
 	case uint64, uint, uint8, uint32:
-		s = Ui64toa(AnyToUint64(val))
+		s = U64toa(AnyToUint64(val))
 	case float32, float64:
 		s = Ftoa(AnyToFloat64(val))
 	case string:

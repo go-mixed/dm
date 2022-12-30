@@ -17,8 +17,21 @@ func IsInt64(val string) bool {
 	return err == nil
 }
 
+func IsUint64(val string) bool {
+	_, err := strconv.ParseUint(val, 10, 64)
+	return err == nil
+}
+
 func ParseInt(s string, base int, bitSize int, _default int64) int64 {
 	if i, err := strconv.ParseInt(s, base, bitSize); err == nil {
+		return i
+	}
+
+	return _default
+}
+
+func ParseUint(s string, base int, bitSize int, _default uint64) uint64 {
+	if i, err := strconv.ParseUint(s, base, bitSize); err == nil {
 		return i
 	}
 
@@ -40,6 +53,14 @@ func Atoi(s string, _default int) int {
 	return _default
 }
 
+func Atoi64(s string, _default int64) int64 {
+	return ParseInt(s, 10, 64, _default)
+}
+
+func Atou64(s string, _default uint64) uint64 {
+	return ParseUint(s, 10, 64, _default)
+}
+
 func Atof(s string, _default float32) float32 {
 	return float32(ParseFloat(s, 32, float64(_default)))
 }
@@ -52,10 +73,6 @@ func Ftoa(f float64) string {
 	return strconv.FormatFloat(f, 'f', -1, 64)
 }
 
-func Atoi64(s string, _default int64) int64 {
-	return ParseInt(s, 10, 64, _default)
-}
-
 func Itoa(i int) string {
 	return strconv.Itoa(i)
 }
@@ -64,7 +81,7 @@ func I64toa(i int64) string {
 	return strconv.FormatInt(i, 10)
 }
 
-func Ui64toa(i uint64) string {
+func U64toa(i uint64) string {
 	return strconv.FormatUint(i, 10)
 }
 
