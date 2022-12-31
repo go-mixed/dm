@@ -49,7 +49,10 @@ func Export() {
 			"Redis":  reflect.ValueOf(consumer.Redis),
 			"Etcd":   reflect.ValueOf(consumer.Etcd),
 		},
-		Funcs:       map[string]reflect.Value{},
+		Funcs: map[string]reflect.Value{
+			"IsColEmpty":      reflect.ValueOf(consumer.IsColEmpty),
+			"IsColValueEqual": reflect.ValueOf(consumer.IsColValueEqual),
+		},
 		TypedConsts: map[string]igop.TypedConst{},
 		UntypedConsts: map[string]igop.UntypedConst{
 			"TYPE_NUMBER":     {"untyped int", constant.MakeInt64(int64(consumer.TYPE_NUMBER))},
