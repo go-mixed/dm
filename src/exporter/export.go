@@ -5,8 +5,8 @@ import (
 	"go.uber.org/zap"
 	"go/constant"
 	"gopkg.in/go-mixed/dm-consumer.v1"
-	cache "gopkg.in/go-mixed/go-common.v1/cache.v1"
 	"gopkg.in/go-mixed/go-common.v1/logger.v1"
+	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/conv"
 	"reflect"
 )
@@ -15,12 +15,10 @@ import (
 qexp -outdir . -filename export github.com/fly-studio/dm/src/consumer/conv
 */
 
-func SetRedis(redis cache.ICache) {
-	consumer.Redis = ToConsumerICache(redis)
+func SetRedis(redis utils.IKV) {
+	consumer.Redis = ToConsumerIKV(redis)
 }
-func SetEtcd(etcd cache.ICache) {
-	consumer.Etcd = ToConsumerICache(etcd)
-}
+
 func SetLogger(logger *logger.Logger) {
 	consumer.Logger = ToConsumerILogger(logger.With(zap.String("scope", "script")).Sugar())
 }
@@ -37,7 +35,7 @@ func Export() {
 			"RowEvent":    reflect.TypeOf((*consumer.RowEvent)(nil)).Elem(),
 			"KV":          reflect.TypeOf((*consumer.KV)(nil)).Elem(),
 			"KVs":         reflect.TypeOf((*consumer.KVs)(nil)).Elem(),
-			"ICache":      reflect.TypeOf((*consumer.ICache)(nil)).Elem(),
+			"ICache":      reflect.TypeOf((*consumer.IKV)(nil)).Elem(),
 			"ILogger":     reflect.TypeOf((*consumer.ILogger)(nil)).Elem(),
 			"Table":       reflect.TypeOf((*consumer.Table)(nil)).Elem(),
 			"TableColumn": reflect.TypeOf((*consumer.TableColumn)(nil)).Elem(),
@@ -47,7 +45,6 @@ func Export() {
 		Vars: map[string]reflect.Value{
 			"Logger": reflect.ValueOf(consumer.Logger),
 			"Redis":  reflect.ValueOf(consumer.Redis),
-			"Etcd":   reflect.ValueOf(consumer.Etcd),
 		},
 		Funcs: map[string]reflect.Value{
 			"IsColEmpty":      reflect.ValueOf(consumer.IsColEmpty),

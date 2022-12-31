@@ -37,7 +37,7 @@ func main() {
 	}
 }
 
-func readSettings(_configFile, _logPath string) *conf.Settings {
+func readSettings(_configFile string) *conf.Settings {
 	// 读取配置文件
 	settings, err := conf.LoadSettings(_configFile)
 	if err != nil {
@@ -53,13 +53,13 @@ func readSettings(_configFile, _logPath string) *conf.Settings {
 
 func buildLogger(options logger.LoggerOptions) *logger.Logger {
 	// 初始化日志
-	logger, err := logger.NewLogger(options)
+	l, err := logger.NewLogger(options)
 	if err != nil {
 		panic(err.Error())
 	}
-	logger.Info("Loaded settings")
+	l.Info("Loaded settings")
 
-	return logger
+	return l
 }
 
 func buildMySql(components *component.Components) *mysql.MySql {
@@ -111,7 +111,6 @@ func runTask(components *component.Components) {
 func export(components *component.Components) {
 	exporter.SetLogger(components.Logger)
 	exporter.SetRedis(components.Target.Redis)
-	exporter.SetEtcd(components.Target.Etcd)
 	exporter.SetGetTableFn(components.Storage.GetTable)
 	exporter.Export()
 }
@@ -124,7 +123,10 @@ func run(_configFile, _logPath string) {
 		}
 	}()
 
-	components.Settings = readSettings(_configFile, _logPath)
+	components.Settings = readSettings(_configFile)
+	if _logPath != "" {
+		components.Settings.LoggerOptions.FilePath = _logPath
+	}
 	components.Logger = buildLogger(components.Settings.LoggerOptions)
 	components.Mysql = buildMySql(components)
 	components.Target = buildTarget(components)

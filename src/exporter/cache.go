@@ -3,17 +3,16 @@ package exporter
 import (
 	"github.com/pkg/errors"
 	consumer "gopkg.in/go-mixed/dm-consumer.v1"
-	cache "gopkg.in/go-mixed/go-common.v1/cache.v1"
 	"gopkg.in/go-mixed/go-common.v1/utils"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"time"
 )
 
 type iCache struct {
-	client cache.ICache
+	client utils.IKV
 }
 
-func ToConsumerICache(c cache.ICache) consumer.ICache {
+func ToConsumerIKV(c utils.IKV) consumer.IKV {
 	// struct 转为 interface后，nil需要反射判断
 	if core.IsInterfaceNil(c) {
 		return &iCache{nil}
