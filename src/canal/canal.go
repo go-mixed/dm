@@ -2,13 +2,13 @@ package canal
 
 import (
 	"context"
-	"github.com/fly-studio/dm/src/common"
-	"github.com/fly-studio/dm/src/component"
 	"github.com/go-mysql-org/go-mysql/canal"
 	"github.com/pingcap/errors"
 	"github.com/siddontang/go-log/log"
-	"go-common/utils/core"
-	io_utils "go-common/utils/io"
+	"gopkg.in/go-mixed/dm.v1/src/common"
+	"gopkg.in/go-mixed/dm.v1/src/component"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
+	io_utils "gopkg.in/go-mixed/go-common.v1/utils/io"
 	"path/filepath"
 	"runtime"
 	"time"

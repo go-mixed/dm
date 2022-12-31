@@ -1,9 +1,9 @@
 package task
 
 import (
-	"github.com/fly-studio/igop/mod"
 	"github.com/goplus/igop"
 	"github.com/pkg/errors"
+	"gopkg.in/go-mixed/igop.v1/mod"
 )
 
 func buildIgop(path string, debug bool) (*mod.Context, error) {

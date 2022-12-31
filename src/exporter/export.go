@@ -1,12 +1,13 @@
-package consumer
+package exporter
 
 import (
-	"github.com/fly-studio/dm/src/consumer/conv"
 	"github.com/goplus/igop"
-	cache "go-common-cache"
-	"go-common/utils"
 	"go.uber.org/zap"
 	"go/constant"
+	"gopkg.in/go-mixed/dm-consumer.v1"
+	cache "gopkg.in/go-mixed/go-common.v1/cache.v1"
+	"gopkg.in/go-mixed/go-common.v1/logger.v1"
+	"gopkg.in/go-mixed/go-common.v1/utils/conv"
 	"reflect"
 )
 
@@ -14,69 +15,64 @@ import (
 qexp -outdir . -filename export github.com/fly-studio/dm/src/consumer/conv
 */
 
-var Redis ICache
-var Etcd ICache
-var Logger ILogger
-
 func SetRedis(redis cache.ICache) {
-	Redis = ToConsumerICache(redis)
+	consumer.Redis = ToConsumerICache(redis)
 }
 func SetEtcd(etcd cache.ICache) {
-	Etcd = ToConsumerICache(etcd)
+	consumer.Etcd = ToConsumerICache(etcd)
 }
-func SetLogger(logger *utils.Logger) {
-	Logger = ToConsumerILogger(logger.With(zap.String("scope", "script")).Sugar())
+func SetLogger(logger *logger.Logger) {
+	consumer.Logger = ToConsumerILogger(logger.With(zap.String("scope", "script")).Sugar())
 }
 
 func Export() {
 	igop.RegisterPackage(&igop.Package{
 		Name: "consumer",
-		Path: "github.com/fly-studio/dm/src/consumer",
+		Path: "gopkg.in/go-mixed/dm-consumer.v1",
 		Deps: map[string]string{
 			"time": "time",
 		},
 		Interfaces: map[string]reflect.Type{},
 		NamedTypes: map[string]reflect.Type{
-			"RowEvent":    reflect.TypeOf((*RowEvent)(nil)).Elem(),
-			"KV":          reflect.TypeOf((*KV)(nil)).Elem(),
-			"KVs":         reflect.TypeOf((*KVs)(nil)).Elem(),
-			"ICache":      reflect.TypeOf((*ICache)(nil)).Elem(),
-			"IL2Cache":    reflect.TypeOf((*IL2Cache)(nil)).Elem(),
-			"ILogger":     reflect.TypeOf((*ILogger)(nil)).Elem(),
-			"Table":       reflect.TypeOf((*Table)(nil)).Elem(),
-			"TableColumn": reflect.TypeOf((*TableColumn)(nil)).Elem(),
-			"TableIndex":  reflect.TypeOf((*TableIndex)(nil)).Elem(),
+			"RowEvent":    reflect.TypeOf((*consumer.RowEvent)(nil)).Elem(),
+			"KV":          reflect.TypeOf((*consumer.KV)(nil)).Elem(),
+			"KVs":         reflect.TypeOf((*consumer.KVs)(nil)).Elem(),
+			"ICache":      reflect.TypeOf((*consumer.ICache)(nil)).Elem(),
+			"ILogger":     reflect.TypeOf((*consumer.ILogger)(nil)).Elem(),
+			"Table":       reflect.TypeOf((*consumer.Table)(nil)).Elem(),
+			"TableColumn": reflect.TypeOf((*consumer.TableColumn)(nil)).Elem(),
+			"TableIndex":  reflect.TypeOf((*consumer.TableIndex)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars: map[string]reflect.Value{
-			"Logger": reflect.ValueOf(Logger),
-			"Redis":  reflect.ValueOf(Redis),
-			"Etcd":   reflect.ValueOf(Etcd),
+			"Logger": reflect.ValueOf(consumer.Logger),
+			"Redis":  reflect.ValueOf(consumer.Redis),
+			"Etcd":   reflect.ValueOf(consumer.Etcd),
 		},
 		Funcs:       map[string]reflect.Value{},
 		TypedConsts: map[string]igop.TypedConst{},
 		UntypedConsts: map[string]igop.UntypedConst{
-			"TYPE_NUMBER":     {"untyped int", constant.MakeInt64(int64(TYPE_NUMBER))},
-			"TYPE_FLOAT":      {"untyped int", constant.MakeInt64(int64(TYPE_FLOAT))},
-			"TYPE_ENUM":       {"untyped int", constant.MakeInt64(int64(TYPE_ENUM))},
-			"TYPE_SET":        {"untyped int", constant.MakeInt64(int64(TYPE_SET))},
-			"TYPE_STRING":     {"untyped int", constant.MakeInt64(int64(TYPE_STRING))},
-			"TYPE_DATETIME":   {"untyped int", constant.MakeInt64(int64(TYPE_DATETIME))},
-			"TYPE_TIMESTAMP":  {"untyped int", constant.MakeInt64(int64(TYPE_TIMESTAMP))},
-			"TYPE_DATE":       {"untyped int", constant.MakeInt64(int64(TYPE_DATE))},
-			"TYPE_TIME":       {"untyped int", constant.MakeInt64(int64(TYPE_TIME))},
-			"TYPE_BIT":        {"untyped int", constant.MakeInt64(int64(TYPE_BIT))},
-			"TYPE_JSON":       {"untyped int", constant.MakeInt64(int64(TYPE_JSON))},
-			"TYPE_DECIMAL":    {"untyped int", constant.MakeInt64(int64(TYPE_DECIMAL))},
-			"TYPE_MEDIUM_INT": {"untyped int", constant.MakeInt64(int64(TYPE_MEDIUM_INT))},
-			"TYPE_BINARY":     {"untyped int", constant.MakeInt64(int64(TYPE_BINARY))},
-			"TYPE_POINT":      {"untyped int", constant.MakeInt64(int64(TYPE_POINT))},
+			"TYPE_NUMBER":     {"untyped int", constant.MakeInt64(int64(consumer.TYPE_NUMBER))},
+			"TYPE_FLOAT":      {"untyped int", constant.MakeInt64(int64(consumer.TYPE_FLOAT))},
+			"TYPE_ENUM":       {"untyped int", constant.MakeInt64(int64(consumer.TYPE_ENUM))},
+			"TYPE_SET":        {"untyped int", constant.MakeInt64(int64(consumer.TYPE_SET))},
+			"TYPE_STRING":     {"untyped int", constant.MakeInt64(int64(consumer.TYPE_STRING))},
+			"TYPE_DATETIME":   {"untyped int", constant.MakeInt64(int64(consumer.TYPE_DATETIME))},
+			"TYPE_TIMESTAMP":  {"untyped int", constant.MakeInt64(int64(consumer.TYPE_TIMESTAMP))},
+			"TYPE_DATE":       {"untyped int", constant.MakeInt64(int64(consumer.TYPE_DATE))},
+			"TYPE_TIME":       {"untyped int", constant.MakeInt64(int64(consumer.TYPE_TIME))},
+			"TYPE_BIT":        {"untyped int", constant.MakeInt64(int64(consumer.TYPE_BIT))},
+			"TYPE_JSON":       {"untyped int", constant.MakeInt64(int64(consumer.TYPE_JSON))},
+			"TYPE_DECIMAL":    {"untyped int", constant.MakeInt64(int64(consumer.TYPE_DECIMAL))},
+			"TYPE_MEDIUM_INT": {"untyped int", constant.MakeInt64(int64(consumer.TYPE_MEDIUM_INT))},
+			"TYPE_BINARY":     {"untyped int", constant.MakeInt64(int64(consumer.TYPE_BINARY))},
+			"TYPE_POINT":      {"untyped int", constant.MakeInt64(int64(consumer.TYPE_POINT))},
 		},
 	})
 
 	igop.RegisterPackage(&igop.Package{
 		Name: "conv",
-		Path: "github.com/fly-studio/dm/src/consumer/conv",
+		Path: "gopkg.in/go-mixed/dm-consumer.v1/conv",
 		Deps: map[string]string{
 			"encoding/hex": "hex",
 			"fmt":          "fmt",

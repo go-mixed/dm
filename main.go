@@ -2,18 +2,18 @@ package main
 
 import (
 	"context"
-	"github.com/fly-studio/dm/src/component"
-	"github.com/fly-studio/dm/src/consumer"
-	"github.com/fly-studio/dm/src/mysql"
-	conf "github.com/fly-studio/dm/src/settings"
-	"github.com/fly-studio/dm/src/storage"
-	"github.com/fly-studio/dm/src/target"
-	"github.com/fly-studio/dm/src/task"
 	"github.com/spf13/cobra"
-	"go-common/utils"
-	"go-common/utils/core"
-	"go-common/utils/io"
 	"go.uber.org/zap"
+	"gopkg.in/go-mixed/dm.v1/src/component"
+	"gopkg.in/go-mixed/dm.v1/src/exporter"
+	"gopkg.in/go-mixed/dm.v1/src/mysql"
+	conf "gopkg.in/go-mixed/dm.v1/src/settings"
+	"gopkg.in/go-mixed/dm.v1/src/storage"
+	"gopkg.in/go-mixed/dm.v1/src/target"
+	"gopkg.in/go-mixed/dm.v1/src/task"
+	"gopkg.in/go-mixed/go-common.v1/logger.v1"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/io"
 	"path/filepath"
 )
 
@@ -51,9 +51,9 @@ func readSettings(_configFile, _logPath string) *conf.Settings {
 	return settings
 }
 
-func buildLogger(options utils.LoggerOptions) *utils.Logger {
+func buildLogger(options logger.LoggerOptions) *logger.Logger {
 	// 初始化日志
-	logger, err := utils.NewLogger(options)
+	logger, err := logger.NewLogger(options)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -109,11 +109,11 @@ func runTask(components *component.Components) {
 }
 
 func export(components *component.Components) {
-	consumer.SetLogger(components.Logger)
-	consumer.SetRedis(components.Target.Redis)
-	consumer.SetEtcd(components.Target.Etcd)
-	consumer.SetGetTableFn(components.Storage.GetTable)
-	consumer.Export()
+	exporter.SetLogger(components.Logger)
+	exporter.SetRedis(components.Target.Redis)
+	exporter.SetEtcd(components.Target.Etcd)
+	exporter.SetGetTableFn(components.Storage.GetTable)
+	exporter.Export()
 }
 
 func run(_configFile, _logPath string) {

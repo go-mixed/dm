@@ -2,25 +2,25 @@ package mysql
 
 import (
 	"fmt"
-	"github.com/fly-studio/dm/src/common"
-	"github.com/fly-studio/dm/src/settings"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/pingcap/errors"
-	"go-common/utils"
 	"go.uber.org/zap"
+	"gopkg.in/go-mixed/dm.v1/src/common"
+	"gopkg.in/go-mixed/dm.v1/src/settings"
+	"gopkg.in/go-mixed/go-common.v1/logger.v1"
 	"net/url"
 	"strings"
 )
 
 type MySql struct {
 	settings *settings.Settings
-	logger   *utils.Logger
+	logger   *logger.Logger
 
 	connection *sqlx.DB
 }
 
-func NewMySql(settings *settings.Settings, logger *utils.Logger) *MySql {
+func NewMySql(settings *settings.Settings, logger *logger.Logger) *MySql {
 	return &MySql{
 		settings:   settings,
 		logger:     logger,

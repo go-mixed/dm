@@ -1,23 +1,23 @@
 package target
 
 import (
-	"github.com/fly-studio/dm/src/settings"
 	"github.com/pingcap/errors"
-	cache "go-common-cache"
-	"go-common/utils"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"gopkg.in/go-mixed/dm.v1/src/settings"
+	cache "gopkg.in/go-mixed/go-common.v1/cache.v1"
+	"gopkg.in/go-mixed/go-common.v1/logger.v1"
 )
 
 type Target struct {
 	settings *settings.Settings
-	logger   *utils.Logger
+	logger   *logger.Logger
 
 	Redis *cache.Redis
 	Etcd  *cache.Etcd
 }
 
-func NewTarget(settings *settings.Settings, logger *utils.Logger) *Target {
+func NewTarget(settings *settings.Settings, logger *logger.Logger) *Target {
 	return &Target{
 		settings: settings,
 		logger:   logger,

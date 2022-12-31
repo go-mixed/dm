@@ -1,8 +1,9 @@
 package settings
 
 import (
-	"go-common/utils"
-	"go-common/utils/io"
+	"gopkg.in/go-mixed/go-common.v1/conf.v1"
+	"gopkg.in/go-mixed/go-common.v1/logger.v1"
+	"gopkg.in/go-mixed/go-common.v1/utils/io"
 	"path/filepath"
 )
 
@@ -12,30 +13,30 @@ type Settings struct {
 	TargetOptions   TargetOptions   `yaml:"targets"`
 	TaskOptions     TaskOptions     `yaml:"task"`
 
-	Storage       string              `yaml:"storage"`
-	LoggerOptions utils.LoggerOptions `yaml:"log"`
+	Storage       string               `yaml:"storage"`
+	LoggerOptions logger.LoggerOptions `yaml:"log"`
 }
 
 func LoadSettings(confPath string) (*Settings, error) {
-	conf := &Settings{
+	cfg := &Settings{
 		MySqlOptions:    defaultMySqlOptions(),
 		DumplingOptions: defaultDumplingOptions(),
 		TaskOptions:     defaultTaskOptions(),
 		TargetOptions:   defaultTargetOptions(),
 
 		Storage:       filepath.Join(io_utils.GetCurrentDir(), "storage"),
-		LoggerOptions: utils.DefaultLoggerOptions(),
+		LoggerOptions: logger.DefaultLoggerOptions(),
 	}
 
-	if err := utils.LoadSettings(conf, confPath); err != nil {
+	if err := conf.LoadSettings(cfg, confPath); err != nil {
 		return nil, err
 	}
 
-	return conf, checkSettings(conf)
+	return cfg, checkSettings(cfg)
 }
 
-func checkSettings(conf *Settings) error {
-	if err := conf.TaskOptions.Initial(); err != nil {
+func checkSettings(cfg *Settings) error {
+	if err := cfg.TaskOptions.Initial(); err != nil {
 		return err
 	}
 	return nil

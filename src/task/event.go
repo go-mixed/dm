@@ -1,11 +1,11 @@
 package task
 
 import (
-	"github.com/fly-studio/dm/src/common"
-	"github.com/fly-studio/dm/src/consumer"
 	"github.com/go-mysql-org/go-mysql/canal"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
+	consumer "gopkg.in/go-mixed/dm-consumer.v1"
+	"gopkg.in/go-mixed/dm.v1/src/common"
 )
 
 func (t *Task) OnRotate(rotateEvent *replication.RotateEvent) error {

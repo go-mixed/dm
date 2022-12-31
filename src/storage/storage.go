@@ -2,23 +2,25 @@ package storage
 
 import (
 	"fmt"
-	"github.com/fly-studio/dm/src/common"
-	"github.com/fly-studio/dm/src/consumer"
-	"github.com/fly-studio/dm/src/settings"
 	"github.com/go-mysql-org/go-mysql/schema"
 	"github.com/pkg/errors"
-	"go-common-storage"
-	"go-common/utils"
-	"go-common/utils/io"
-	"go-common/utils/text"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
+	consumer "gopkg.in/go-mixed/dm-consumer.v1"
+	"gopkg.in/go-mixed/dm.v1/src/common"
+	"gopkg.in/go-mixed/dm.v1/src/settings"
+	"gopkg.in/go-mixed/go-common.v1/conf.v1"
+	"gopkg.in/go-mixed/go-common.v1/logger.v1"
+	"gopkg.in/go-mixed/go-common.v1/storage.v1"
+	"gopkg.in/go-mixed/go-common.v1/utils"
+	"gopkg.in/go-mixed/go-common.v1/utils/io"
+	"gopkg.in/go-mixed/go-common.v1/utils/text"
 	"path/filepath"
 )
 
 type Storage struct {
 	settings *settings.Settings
-	logger   *utils.Logger
+	logger   *logger.Logger
 
 	bolt *storage.Bolt
 
@@ -27,7 +29,7 @@ type Storage struct {
 	latestID uint64
 }
 
-func NewStorage(settings *settings.Settings, logger *utils.Logger) (*Storage, error) {
+func NewStorage(settings *settings.Settings, logger *logger.Logger) (*Storage, error) {
 	storagePath := filepath.Join(settings.Storage, common.BoltFilename)
 	bolt, err := storage.NewBolt(storagePath, logger.Sugar())
 	if err != nil {
@@ -67,7 +69,7 @@ func (s *Storage) Close() error {
 
 func (s *Storage) SaveBinLogPosition(binLog common.BinLogPosition) {
 	positionPath := filepath.Join(s.settings.Storage, common.PositionFilename)
-	if err := utils.WriteSettings(binLog, positionPath); err != nil {
+	if err := conf.WriteSettings(binLog, positionPath); err != nil {
 		s.logger.Error(err.Error())
 	}
 	s.logger.Info("[Storage]binlog position saved", zap.String("file", binLog.File), zap.Uint32("position", binLog.Position), zap.Uint64("latestID", s.latestID))
@@ -78,7 +80,7 @@ func (s *Storage) ReadBinLogPosition() common.BinLogPosition {
 	positionPath := filepath.Join(s.settings.Storage, common.PositionFilename)
 
 	if io_utils.IsFile(positionPath) {
-		if err := utils.LoadSettings(&savedBinLog, positionPath); err == nil {
+		if err := conf.LoadSettings(&savedBinLog, positionPath); err == nil {
 			return savedBinLog
 		}
 	}

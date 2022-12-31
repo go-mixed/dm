@@ -1,32 +1,17 @@
-package consumer
+package exporter
 
 import (
 	"github.com/pkg/errors"
-	"go-common/utils"
-	"go-common/utils/core"
+	consumer "gopkg.in/go-mixed/dm-consumer.v1"
+	"gopkg.in/go-mixed/go-common.v1/utils"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
 )
-
-type ILogger interface {
-	Fatal(v ...any)
-	Fatalf(format string, v ...any)
-	Error(v ...any)
-	Errorf(format string, v ...any)
-	Panic(v ...any)
-	Panicf(format string, v ...any)
-
-	Debug(v ...any)
-	Debugf(format string, v ...any)
-	Info(v ...any)
-	Infof(format string, v ...any)
-	Warn(v ...any)
-	Warnf(format string, v ...any)
-}
 
 type iLogger struct {
 	logger utils.ILogger
 }
 
-func ToConsumerILogger(logger utils.ILogger) ILogger {
+func ToConsumerILogger(logger utils.ILogger) consumer.ILogger {
 	// struct 转为 interface后，nil需要反射判断
 	if core.IsInterfaceNil(logger) {
 		return &iLogger{nil}

@@ -3,15 +3,15 @@ package task
 import (
 	"context"
 	"fmt"
-	"github.com/fly-studio/dm/src/canal"
-	"github.com/fly-studio/dm/src/common"
-	"github.com/fly-studio/dm/src/component"
-	"github.com/fly-studio/dm/src/consumer"
-	"github.com/fly-studio/dm/src/settings"
-	"github.com/fly-studio/igop/mod"
 	"github.com/goplus/igop"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	consumer "gopkg.in/go-mixed/dm-consumer.v1"
+	"gopkg.in/go-mixed/dm.v1/src/canal"
+	"gopkg.in/go-mixed/dm.v1/src/common"
+	"gopkg.in/go-mixed/dm.v1/src/component"
+	"gopkg.in/go-mixed/dm.v1/src/settings"
+	"gopkg.in/go-mixed/igop.v1/mod"
 )
 
 type Task struct {

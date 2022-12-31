@@ -1,6 +1,6 @@
 package settings
 
-import cache "go-common-cache"
+import cache "gopkg.in/go-mixed/go-common.v1/cache.v1"
 
 type TargetOptions struct {
 	RedisOptions *cache.RedisOptions `yaml:"redis"`

@@ -1,8 +1,8 @@
 package settings
 
 import (
-	"github.com/fly-studio/dm/src/common"
-	"go-common/utils/io"
+	"gopkg.in/go-mixed/dm.v1/src/common"
+	"gopkg.in/go-mixed/go-common.v1/utils/io"
 	"path/filepath"
 	"regexp"
 	"time"

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/fly-studio/dm/src/consumer"
+	"gopkg.in/go-mixed/dm-consumer.v1"
 )
 
 var redis consumer.ICache

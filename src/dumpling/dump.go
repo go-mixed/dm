@@ -4,14 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/fly-studio/dm/src/settings"
-	"go-common/cmd"
-	"go-common/utils"
-	"go-common/utils/conv"
-	"go-common/utils/core"
-	"go-common/utils/io"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/go-mixed/dm.v1/src/settings"
+	"gopkg.in/go-mixed/go-common.v1/cmd.v1"
+	"gopkg.in/go-mixed/go-common.v1/logger.v1"
+	"gopkg.in/go-mixed/go-common.v1/utils/conv"
+	"gopkg.in/go-mixed/go-common.v1/utils/core"
+	"gopkg.in/go-mixed/go-common.v1/utils/io"
 	"net"
 	"path/filepath"
 	"runtime"
@@ -19,7 +19,7 @@ import (
 
 type Dumpling struct {
 	settings *settings.Settings
-	logger   *utils.Logger
+	logger   *logger.Logger
 }
 
 func boolToStr(b bool) string {
@@ -29,7 +29,7 @@ func boolToStr(b bool) string {
 	return "false"
 }
 
-func NewDumpling(settings *settings.Settings, logger *utils.Logger) *Dumpling {
+func NewDumpling(settings *settings.Settings, logger *logger.Logger) *Dumpling {
 	return &Dumpling{
 		settings: settings,
 		logger:   logger,

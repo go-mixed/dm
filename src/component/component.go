@@ -1,17 +1,17 @@
 package component
 
 import (
-	"github.com/fly-studio/dm/src/mysql"
-	"github.com/fly-studio/dm/src/settings"
-	"github.com/fly-studio/dm/src/storage"
-	"github.com/fly-studio/dm/src/target"
-	"go-common/utils"
 	"go.uber.org/multierr"
+	"gopkg.in/go-mixed/dm.v1/src/mysql"
+	"gopkg.in/go-mixed/dm.v1/src/settings"
+	"gopkg.in/go-mixed/dm.v1/src/storage"
+	"gopkg.in/go-mixed/dm.v1/src/target"
+	"gopkg.in/go-mixed/go-common.v1/logger.v1"
 )
 
 type Components struct {
 	Settings *settings.Settings
-	Logger   *utils.Logger
+	Logger   *logger.Logger
 
 	Mysql   *mysql.MySql
 	Target  *target.Target

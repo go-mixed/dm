@@ -1,7 +1,7 @@
 package settings
 
 import (
-	"go-common/utils/unit"
+	"gopkg.in/go-mixed/go-common.v1/utils/unit"
 	"runtime"
 )
 
