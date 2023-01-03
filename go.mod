@@ -15,13 +15,13 @@ require (
 	go.uber.org/multierr v1.9.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/exp v0.0.0-20221230185412-738e83a70c30
-	gopkg.in/go-mixed/dm-consumer.v1 v1.0.0-20221231150801-bae35bf3da12
-	gopkg.in/go-mixed/go-common.v1 v1.0.0-20221231145727-01ea550b68c5
+	gopkg.in/go-mixed/dm-consumer.v1 v1.0.0-20230103085356-070ec430c870
+	gopkg.in/go-mixed/go-common.v1 v1.0.0-20230103090229-025b95dd45f8
 	gopkg.in/go-mixed/go-common.v1/cmd.v1 v1.0.0-20221231070604-08bd886cd751
-	gopkg.in/go-mixed/go-common.v1/conf.v1 v1.0.0-20221231145727-01ea550b68c5
-	gopkg.in/go-mixed/go-common.v1/logger.v1 v1.0.0-20221231145727-01ea550b68c5
-	gopkg.in/go-mixed/go-common.v1/redis.v1 v1.0.0-20221231145727-01ea550b68c5
-	gopkg.in/go-mixed/go-common.v1/storage.v1 v1.0.0-20221231145727-01ea550b68c5
+	gopkg.in/go-mixed/go-common.v1/conf.v1 v1.0.0-20230103090229-025b95dd45f8
+	gopkg.in/go-mixed/go-common.v1/logger.v1 v1.0.0-20230103090229-025b95dd45f8
+	gopkg.in/go-mixed/go-common.v1/redis.v1 v1.0.0-20230103090229-025b95dd45f8
+	gopkg.in/go-mixed/go-common.v1/storage.v1 v1.0.0-20230103090229-025b95dd45f8
 	gopkg.in/go-mixed/igop.v1 v1.0.2
 )
 
@@ -37,7 +37,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/goplus/gop v1.1.3 // indirect
-	github.com/goplus/gox v1.11.22 // indirect
+	github.com/goplus/gox v1.11.31 // indirect
 	github.com/goplus/ipkg v0.1.3 // indirect
 	github.com/goplus/mod v0.9.12 // indirect
 	github.com/goplus/reflectx v0.9.8 // indirect
@@ -63,11 +63,10 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/crypto v0.4.0 // indirect
 	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/text v0.5.0 // indirect
 	golang.org/x/tools v0.4.0 // indirect
-	gopkg.in/go-mixed/go-common.v1/cache.v1 v1.0.0-20221231145727-01ea550b68c5 // indirect
+	gopkg.in/go-mixed/go-common.v1/cache.v1 v1.0.0-20230103090229-025b95dd45f8 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
