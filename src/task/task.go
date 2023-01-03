@@ -12,6 +12,7 @@ import (
 	"gopkg.in/go-mixed/dm.v1/src/component"
 	"gopkg.in/go-mixed/dm.v1/src/settings"
 	"gopkg.in/go-mixed/igop.v1/mod"
+	"sync"
 )
 
 type Task struct {
@@ -26,17 +27,19 @@ type Task struct {
 	// 不然幻读会导致随机ID重复消费
 	nextConsumeEventID uint64
 
-	igopCtx *mod.Context
+	igopCtx           *mod.Context
+	consumerWaitGroup sync.WaitGroup
 }
 
 func NewTask(components *component.Components) *Task {
 	t := &Task{
-		Components: components,
-		binLog:     components.Settings.TaskOptions.BinLog,
-		canal:      nil,
+		Components:        components,
+		binLog:            components.Settings.TaskOptions.BinLog,
+		canal:             nil,
+		consumerWaitGroup: sync.WaitGroup{},
 	}
 
-	t.trigger = common.NewAtomicTrigger(components.Settings.TaskOptions.MaxBulkSize, components.Settings.TaskOptions.MaxWait, t.consumer)
+	t.trigger = common.NewSingleFlightTrigger(components.Settings.TaskOptions.MaxBulkSize, components.Settings.TaskOptions.MaxWait, t.consumer)
 
 	return t
 }
@@ -66,6 +69,9 @@ func (t *Task) Run(ctx context.Context) {
 
 	<-ctx.Done()
 	t.canal.Stop()
+
+	// 等待consumer执行完毕
+	t.consumerWaitGroup.Wait()
 }
 
 func (t *Task) runCanal() {
@@ -76,6 +82,9 @@ func (t *Task) runCanal() {
 
 // 消费events
 func (t *Task) consumer(taskId uint64) {
+	t.consumerWaitGroup.Add(1)
+	defer t.consumerWaitGroup.Done()
+
 	count := t.Storage.EventCount()
 
 	if count <= 0 {

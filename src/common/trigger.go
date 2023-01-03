@@ -22,13 +22,13 @@ type Trigger struct {
 
 const triggerMaxQueueSize = 10
 
-// NewAtomicTrigger 当达到以下任一条件将触发triggerCallback：达到数量阈值，或者超过等待时间
+// NewSingleFlightTrigger 当达到以下任一条件将触发triggerCallback：达到数量阈值，或者超过等待时间
 //
 //	同一时刻，只会执行1个触发的任务，任务均运行在一个协程中
-//	1. 当maxCount触发的任务时，时间触发条件会从该任务【启动时】开始重新计算；
-//	2. 当maxWait触发的任务执行完毕时，不影响继续触发maxCount；
-//	3. 当数量为0时，不会触发任务。
-func NewAtomicTrigger(maxCount uint64, maxWait time.Duration, triggerCallback func(uint64)) *Trigger {
+//	1. 当maxCount触发的任务时，时间触发条件会从该任务【启动时】开始重新计算；当maxWait触发的任务执行完毕时，不影响继续触发maxCount；
+//	2. 当数量为0时，不会触发任务。
+//	为什么不使用sync/singleflight的原因：singleflight正在运行任务时，会阻塞OnCountChanged的调用，而dm业务不允许阻塞（可以通过新建协程OnCountChanged来避免，但是在高峰期时会导致海量协程被创建）。并且dm业务是可以丢弃重复的触发，只需要遵循按时和按量一个条件即可
+func NewSingleFlightTrigger(maxCount uint64, maxWait time.Duration, triggerCallback func(uint64)) *Trigger {
 	return &Trigger{
 		lastTrigger:  time.Time{},
 		lastID:       atomic.Uint64{},

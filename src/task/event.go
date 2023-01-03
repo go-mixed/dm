@@ -36,9 +36,9 @@ func (t *Task) OnRow(e *canal.RowsEvent) error {
 				Table:  e.Table.Name,
 				Alias:  alias,
 
-				OldRow:   nil,
-				NewRow:   common.ToRowMap(e.Rows[i], e.Table.Columns),
-				DiffCols: nil,
+				PreviousRow: nil,
+				Row:         common.ToRowMap(e.Rows[i], e.Table.Columns),
+				DiffCols:    nil,
 			})
 		}
 	case canal.DeleteAction:
@@ -49,9 +49,9 @@ func (t *Task) OnRow(e *canal.RowsEvent) error {
 				Table:  e.Table.Name,
 				Alias:  alias,
 
-				OldRow:   common.ToRowMap(e.Rows[i], e.Table.Columns),
-				NewRow:   nil,
-				DiffCols: nil,
+				PreviousRow: nil,
+				Row:         common.ToRowMap(e.Rows[i], e.Table.Columns),
+				DiffCols:    nil,
 			})
 		}
 	case canal.UpdateAction:
@@ -62,9 +62,9 @@ func (t *Task) OnRow(e *canal.RowsEvent) error {
 				Table:  e.Table.Name,
 				Alias:  alias,
 
-				OldRow:   common.ToRowMap(e.Rows[i], e.Table.Columns),
-				NewRow:   common.ToRowMap(e.Rows[i+1], e.Table.Columns),
-				DiffCols: common.DiffCols(e.Rows[i], e.Rows[i+1], e.Table.Columns),
+				PreviousRow: common.ToRowMap(e.Rows[i], e.Table.Columns),
+				Row:         common.ToRowMap(e.Rows[i+1], e.Table.Columns),
+				DiffCols:    common.DiffCols(e.Rows[i], e.Rows[i+1], e.Table.Columns),
 			})
 		}
 	}

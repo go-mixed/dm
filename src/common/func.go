@@ -78,7 +78,7 @@ func DiffCols(cols1 []any, cols2 []any, columns []schema.TableColumn) []string {
 		v1 := cols1[i]
 		v2 := cols2[i]
 
-		if !consumer.IsColValueEqual(columns[i].Type, v1, v2) {
+		if !consumer.IsColValueEqual(columns[i].Type, columns[i].IsUnsigned, v1, v2) {
 			colNames = append(colNames, columns[i].Name)
 		}
 	}
