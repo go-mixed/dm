@@ -18,7 +18,7 @@ type Components struct {
 	Storage *storage.Storage
 }
 
-func (c *Components) Close() error {
+func (c *Components) CloseComponents() error {
 	var err error
 	if c.Mysql != nil {
 		err = c.Mysql.Close()

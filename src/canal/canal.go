@@ -1,14 +1,13 @@
 package canal
 
 import (
-	"context"
 	"github.com/go-mysql-org/go-mysql/canal"
 	"github.com/pingcap/errors"
 	"github.com/siddontang/go-log/log"
 	"gopkg.in/go-mixed/dm.v1/src/common"
 	"gopkg.in/go-mixed/dm.v1/src/component"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
-	io_utils "gopkg.in/go-mixed/go-common.v1/utils/io"
+	"gopkg.in/go-mixed/go-common.v1/utils/io"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -17,71 +16,67 @@ import (
 type Canal struct {
 	*component.Components
 
-	canal *canal.Canal
+	canal    *canal.Canal
+	handler  canal.EventHandler
+	canalCfg *canal.Config
 }
 
-func NewCanal(components *component.Components, handler canal.EventHandler) (*Canal, error) {
+func NewCanal(components *component.Components, handler canal.EventHandler) *Canal {
 	zone, err := time.LoadLocation(components.Settings.MySqlOptions.TimeZone)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	cfg := &canal.Config{
-		Addr:                  components.Settings.MySqlOptions.Host,
-		User:                  components.Settings.MySqlOptions.Username,
-		Password:              components.Settings.MySqlOptions.Password,
-		Charset:               components.Settings.MySqlOptions.Charset,
-		ServerID:              components.Settings.MySqlOptions.ServerID,
-		Flavor:                components.Settings.MySqlOptions.Flavor,
-		HeartbeatPeriod:       components.Settings.MySqlOptions.HeartbeatPeriod,
-		ReadTimeout:           components.Settings.MySqlOptions.ReadTimeout,
-		IncludeTableRegex:     components.Settings.TaskOptions.GetTablePatterns(),
-		ExcludeTableRegex:     nil,
-		DiscardNoMetaRowEvent: false,
-		Dump: canal.DumpConfig{
-			ExecutionPath:  filepath.Join(io_utils.GetCurrentDir(), "third-party", "mysql", core.If(runtime.GOOS == "windows", "mysqldump.exe", "mysqldump")),
-			DiscardErr:     false,
-			SkipMasterData: true,
-		},
-		UseDecimal:              false,
-		ParseTime:               false,
-		TimestampStringLocation: zone,
-		SemiSyncEnabled:         false,
-		MaxReconnectAttempts:    components.Settings.MySqlOptions.MaxReconnectAttempts,
-		DisableRetrySync:        false,
-		TLSConfig:               nil,
-		Logger:                  nil,
-	}
-
 	streamHandler, _ := log.NewTimeRotatingFileHandler(filepath.Join(filepath.Dir(components.Settings.LoggerOptions.FilePath), common.LogCanalFilename), log.WhenDay, 1)
-	cfg.Logger = log.NewDefault(streamHandler)
+	canalLogger := log.NewDefault(streamHandler)
 
-	c, err := canal.NewCanal(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	_c := &Canal{
+	return &Canal{
 		Components: components,
-		canal:      c,
+		handler:    handler,
+		canalCfg: &canal.Config{
+			Addr:                  components.Settings.MySqlOptions.Host,
+			User:                  components.Settings.MySqlOptions.Username,
+			Password:              components.Settings.MySqlOptions.Password,
+			Charset:               components.Settings.MySqlOptions.Charset,
+			ServerID:              components.Settings.MySqlOptions.ServerID,
+			Flavor:                components.Settings.MySqlOptions.Flavor,
+			HeartbeatPeriod:       components.Settings.MySqlOptions.HeartbeatPeriod,
+			ReadTimeout:           components.Settings.MySqlOptions.ReadTimeout,
+			IncludeTableRegex:     components.Settings.TaskOptions.GetTablePatterns(),
+			ExcludeTableRegex:     nil,
+			DiscardNoMetaRowEvent: false,
+			Dump: canal.DumpConfig{
+				ExecutionPath:  filepath.Join(io_utils.GetCurrentDir(), "third-party", "mysql", core.If(runtime.GOOS == "windows", "mysqldump.exe", "mysqldump")),
+				DiscardErr:     false,
+				SkipMasterData: true,
+			},
+			UseDecimal:              false,
+			ParseTime:               false,
+			TimestampStringLocation: zone,
+			SemiSyncEnabled:         false,
+			MaxReconnectAttempts:    components.Settings.MySqlOptions.MaxReconnectAttempts,
+			DisableRetrySync:        false,
+			TLSConfig:               nil,
+			Logger:                  canalLogger,
+		},
 	}
-
-	c.SetEventHandler(handler)
-
-	return _c, nil
 }
 
 func (c *Canal) Start(binlog common.BinLogPosition) error {
+	c.Stop()
+
+	// 原版一个canal实例的只能运行一次，本canal实例可以支持多次启动和停止，所以在Start的时候才NewCanal对象
+	var err error
+	c.canal, err = canal.NewCanal(c.canalCfg)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	c.canal.SetEventHandler(c.handler)
 	return errors.WithStack(c.canal.RunFrom(binlog.ToMysqlPos()))
 }
 
 func (c *Canal) Stop() {
-	c.canal.Close()
-}
-
-func (c *Canal) Wait(ctx context.Context) {
-	select {
-	case <-ctx.Done():
-	case <-c.canal.Ctx().Done():
+	if c.canal != nil {
+		c.canal.Close()
 	}
 }

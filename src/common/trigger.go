@@ -14,7 +14,7 @@ type Trigger struct {
 	maxCount     uint64
 	currentCount atomic.Uint64
 
-	triggerCallback func(uint64)
+	triggerCallback func(context.Context, uint64)
 
 	queueCount atomic.Int32
 	queue      chan struct{}
@@ -28,7 +28,7 @@ const triggerMaxQueueSize = 10
 //	1. 当maxCount触发的任务时，时间触发条件会从该任务【启动时】开始重新计算；当maxWait触发的任务执行完毕时，不影响继续触发maxCount；
 //	2. 当数量为0时，不会触发任务。
 //	为什么不使用sync/singleflight的原因：singleflight正在运行任务时，会阻塞OnCountChanged的调用，而dm业务不允许阻塞（可以通过新建协程OnCountChanged来避免，但是在高峰期时会导致海量协程被创建）。并且dm业务是可以丢弃重复的触发，只需要遵循按时和按量一个条件即可
-func NewSingleFlightTrigger(maxCount uint64, maxWait time.Duration, triggerCallback func(uint64)) *Trigger {
+func NewSingleFlightTrigger(maxCount uint64, maxWait time.Duration, triggerCallback func(context.Context, uint64)) *Trigger {
 	return &Trigger{
 		lastTrigger:  time.Time{},
 		lastID:       atomic.Uint64{},
@@ -51,28 +51,27 @@ func (t *Trigger) Run(ctx context.Context) {
 		tick := time.NewTicker(t.maxWait)
 		for {
 			select {
-			case <-tick.C:
-				t.addQueue()
 			case <-ctx.Done():
 				tick.Stop()
 				return
+			case <-tick.C:
+				t.addQueue()
 			}
 		}
 	}()
 
 	for {
 		select {
+		case <-ctx.Done(): // 放前面，先触发
+			return
 		case <-t.queue:
 			count := t.currentCount.Load()
 			if count > 0 && (count >= t.maxCount || time.Since(t.lastTrigger) >= t.maxWait) {
 				t.lastTrigger = time.Now()
-				t.triggerCallback(t.lastID.Add(1))
+				t.triggerCallback(ctx, t.lastID.Add(1))
 			}
 			t.queueCount.Add(-1) // 减去消耗的任务
-		case <-ctx.Done():
-			return
 		}
-
 	}
 }
 

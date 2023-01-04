@@ -102,7 +102,10 @@ func runTask(components *component.Components) {
 	// stop when ctrl+c
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	core.ListenStopSignal(ctx, cancel)
+	core.ListenStopSignal(ctx, func() {
+		components.Logger.Info("signal: ctrl+c")
+		cancel()
+	})
 
 	// always block run except called cancel()
 	t.Run(ctx)
@@ -118,7 +121,7 @@ func export(components *component.Components) {
 func run(_configFile, _logPath string) {
 	components := &component.Components{}
 	defer func() {
-		if err := components.Close(); err != nil && components.Logger != nil {
+		if err := components.CloseComponents(); err != nil && components.Logger != nil {
 			components.Logger.Error("components close error", zap.Error(err))
 		}
 	}()
@@ -135,7 +138,7 @@ func run(_configFile, _logPath string) {
 	// 一定要在task之前运行
 	export(components)
 
-	runTask(components)
+	runTask(components) // 阻塞运行
 
 	components.Logger.Info("application exit.")
 }

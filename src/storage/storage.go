@@ -186,24 +186,16 @@ func (s *Storage) LatestID() uint64 {
 	return s.latestID
 }
 
-func (s *Storage) EventForEach(keyStart string, callback func(key string, event consumer.RowEvent) bool) string {
+func (s *Storage) EventForEach(keyStart string, callback func(key string, event consumer.RowEvent) error) (string, error) {
 	nextKey, _, err := s.bolt.Bucket(common.StorageEvents).RangeCallback(keyStart, "", "", int64(s.settings.TaskOptions.MaxBulkSize), func(bucket *bbolt.Bucket, kv *utils.KV) error {
 		var event consumer.RowEvent
 		if err := text_utils.GobDecode(kv.Value, &event); err != nil {
 			return err
 		}
-		if !callback(kv.Key, event) { // 返回false跳出循环
-			return storage.ErrForEachBreak
-		}
-
-		return nil
+		return callback(kv.Key, event)
 	})
 
-	if err != nil && !errors.Is(err, storage.ErrForEachBreak) {
-		s.logger.Error("[Storage]for each of event error", zap.Error(err))
-	}
-
-	return nextKey
+	return nextKey, err
 }
 
 func (s *Storage) DeleteEventsTo(toKey string) {
