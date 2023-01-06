@@ -2,19 +2,19 @@ package storage
 
 import (
 	"fmt"
+	obadger "github.com/dgraph-io/badger/v3"
 	"github.com/go-mysql-org/go-mysql/schema"
 	"github.com/pkg/errors"
-	"go.etcd.io/bbolt"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
-	consumer "gopkg.in/go-mixed/dm-consumer.v1"
+	"gopkg.in/go-mixed/dm-consumer.v1"
 	"gopkg.in/go-mixed/dm.v1/src/common"
 	"gopkg.in/go-mixed/dm.v1/src/settings"
-	"gopkg.in/go-mixed/go-common.v1/conf.v1"
+	"gopkg.in/go-mixed/go-common.v1/badger.v1"
 	"gopkg.in/go-mixed/go-common.v1/logger.v1"
-	"gopkg.in/go-mixed/go-common.v1/storage.v1"
 	"gopkg.in/go-mixed/go-common.v1/utils"
-	"gopkg.in/go-mixed/go-common.v1/utils/io"
 	"gopkg.in/go-mixed/go-common.v1/utils/text"
+	"gopkg.in/go-mixed/go-common.v1/utils/time"
 	"path/filepath"
 )
 
@@ -22,93 +22,61 @@ type Storage struct {
 	settings *settings.Settings
 	logger   *logger.Logger
 
-	bolt *storage.Bolt
+	db *badger.Badger
 
 	tables map[string]*schema.Table
 
-	latestID uint64
+	Conf  conf
+	timer *time_utils.Ticker
 }
 
 func NewStorage(settings *settings.Settings, logger *logger.Logger) (*Storage, error) {
-	storagePath := filepath.Join(settings.Storage, common.BoltFilename)
-	bolt, err := storage.NewBolt(storagePath, logger.Sugar())
-	if err != nil {
-		return nil, err
-	}
-	bolt.SetEncodeFunc(text_utils.GobEncode).SetDecodeFunc(text_utils.GobDecode)
+	// 运行在内存中的lsm树
+	db := badger.NewBadger(filepath.Join(settings.StorageOptions.Dir, "data"), logger.Sugar(), settings.StorageOptions.WorkInMemory).SetEncoderFunc(text_utils.GobEncode).SetDecoderFunc(text_utils.GobDecode)
 
-	return &Storage{
+	s := &Storage{
 		settings: settings,
 		logger:   logger,
-		bolt:     bolt,
+		db:       db,
 		tables:   make(map[string]*schema.Table),
 
-		latestID: 0,
-	}, nil
+		Conf: buildConf(logger),
+	}
+	return s, nil
 }
 
 func (s *Storage) Initial() error {
-	s.ReadTables()
-
-	pos := s.ReadBinLogPosition()
-	if pos.IsEmpty() { // delete events if master-info.yaml not exists
-		s.ClearEvents()
+	eventCount := s.db.Bucket(common.StorageBucket).Count() // 读取badger中剩余的数据
+	if err := s.Conf.Initial(s.settings.StorageOptions, eventCount); err != nil {
+		return err
 	}
+	s.Conf.load()
 
-	_ = s.bolt.Bucket(common.StorageEvents).View(func(bucket *bbolt.Bucket) error {
-		s.latestID = bucket.Sequence()
-		return nil
-	})
+	s.timer = time_utils.NewTicker(s.settings.StorageOptions.GCTimer, s.tick)
 
 	return nil
 }
 
 func (s *Storage) Close() error {
-	return s.bolt.Close()
-}
-
-func (s *Storage) SaveBinLogPosition(binLog common.BinLogPosition) {
-	positionPath := filepath.Join(s.settings.Storage, common.PositionFilename)
-	if err := conf.WriteSettings(binLog, positionPath); err != nil {
-		s.logger.Error(err.Error())
-	}
-	s.logger.Info("[Storage]binlog position saved", zap.String("file", binLog.File), zap.Uint32("position", binLog.Position), zap.Uint64("latestID", s.latestID))
-}
-
-func (s *Storage) ReadBinLogPosition() common.BinLogPosition {
-	var savedBinLog common.BinLogPosition
-	positionPath := filepath.Join(s.settings.Storage, common.PositionFilename)
-
-	if io_utils.IsFile(positionPath) {
-		if err := conf.LoadSettings(&savedBinLog, positionPath); err == nil {
-			return savedBinLog
-		}
-	}
-
-	return common.BinLogPosition{}
+	err := s.Conf.Close()
+	return multierr.Append(err, s.db.Close())
 }
 
 func (s *Storage) GetLatestBinLogPosition(currentBinLog common.BinLogPosition) common.BinLogPosition {
-	savedBinLog := s.ReadBinLogPosition()
-	if savedBinLog.GreaterThan(currentBinLog) {
-		return savedBinLog
+	var newPos common.BinLogPosition
+
+	// 内存模式取latestConsumeBinLogPosition，文件模式取latestCanalBinLogPosition
+	if s.settings.StorageOptions.WorkInMemory {
+		newPos = s.Conf.consumeBinLogPosition
+	} else {
+		newPos = s.Conf.canalBinLogPosition
+	}
+
+	if newPos.GreaterThan(currentBinLog) {
+		return newPos
 	}
 
 	return currentBinLog
-}
-
-func (s *Storage) ReadTables() {
-	if _, err := s.bolt.Bucket(common.StorageTables).ForEach(func(bucket *bbolt.Bucket, kv *utils.KV) error {
-		var table schema.Table
-		if err := text_utils.GobDecode(kv.Value, &table); err != nil {
-			s.logger.Error(fmt.Sprintf("[Storage]read table \"%s\" error", kv.Key), zap.Error(err))
-		} else {
-			s.tables[kv.Key] = &table
-		}
-		return nil
-	}); err != nil {
-		s.logger.Error("[Storage]read tables error", zap.Error(err))
-	}
 }
 
 // GetTable 通过别名获取table的结构
@@ -120,8 +88,8 @@ func (s *Storage) GetTable(alias string) *schema.Table {
 	return table
 }
 
-// SaveAndGetTableAlias 保存当前table，并返回别名
-func (s *Storage) SaveAndGetTableAlias(table *schema.Table) string {
+// UpdateAndGetTableAlias 保存当前table，并返回别名
+func (s *Storage) UpdateAndGetTableAlias(table *schema.Table) string {
 	tableName := common.BuildTableName(table.Schema, table.Name, table.Columns)
 
 	if _, ok := s.tables[tableName]; ok {
@@ -131,78 +99,120 @@ func (s *Storage) SaveAndGetTableAlias(table *schema.Table) string {
 	s.tables[tableName] = table                                            // 存储table的快照结构
 	s.tables[common.BuildTableName(table.Schema, table.Name, nil)] = table // 存储Schema.Table的结构
 
-	if err := s.bolt.Bucket(common.StorageTables).Set(tableName, table); err != nil {
-		s.logger.Error("[Storage]table write to storage error", zap.Error(err))
-	}
-
 	return tableName
 }
 
-// SaveEvents 保存binlog事件到storage
-func (s *Storage) SaveEvents(events []consumer.RowEvent) {
-	if len(events) <= 0 {
+// AddEvents 将binlog事件添加到storage中
+func (s *Storage) AddEvents(events []consumer.RowEvent) {
+	l := len(events)
+	if l <= 0 {
 		return
 	}
-	if err := s.bolt.Bucket(common.StorageEvents).Batch(func(bucket *bbolt.Bucket) error {
+
+	if err := s.db.Bucket(common.StorageBucket).Update(func(txn *obadger.Txn) error {
 		for _, event := range events {
-			id, err := bucket.NextSequence()
-			if err != nil {
-				return errors.WithStack(err)
-			}
+			id := s.Conf.AddLatestEventID(1)
 			key := common.BuildEventKey(id, event.Schema, event.Table, event.Action)
 			event.ID = id
 
-			buf, err := text_utils.GobEncode(event)
+			buf, err := s.db.EncoderFunc(event)
 			if err != nil {
 				s.logger.Error(fmt.Sprintf("[Storage]encode event \"%s\" error", key), zap.Error(err))
-				buf = nil
+				return err
 			}
-			if err = bucket.Put([]byte(key), buf); err != nil {
+			if err = txn.Set([]byte(key), buf); err != nil {
 				s.logger.Error(fmt.Sprintf("[Storage]write event \"%s\" error", key), zap.Error(err))
+				return errors.WithStack(err)
 			}
 		}
-		s.latestID = bucket.Sequence()
+
 		return nil
 	}); err != nil {
-		s.logger.Error(fmt.Sprintf("[Storage]writed %d events of \"%s\" error", len(events), events[0].Action), zap.Error(err))
-	}
-
-	s.logger.Info(fmt.Sprintf("[Storage]writed %d events of \"%s\"", len(events), events[0].Action))
-}
-
-// ClearEvents 清除在storage中所有binlog事件
-func (s *Storage) ClearEvents() {
-	if err := s.bolt.Bucket(common.StorageEvents).Clear(); err != nil {
-		s.logger.Error("[Storage]clear events bucket error", zap.Error(err))
-	}
-}
-
-// EventCount 当前在storage中缓存的binlog事件数量
-func (s *Storage) EventCount() uint64 {
-	return uint64(s.bolt.Bucket(common.StorageEvents).Count())
-}
-
-func (s *Storage) LatestID() uint64 {
-	return s.latestID
-}
-
-func (s *Storage) EventForEach(keyStart string, callback func(key string, event consumer.RowEvent) error) (string, error) {
-	nextKey, _, err := s.bolt.Bucket(common.StorageEvents).RangeCallback(keyStart, "", "", int64(s.settings.TaskOptions.MaxBulkSize), func(bucket *bbolt.Bucket, kv *utils.KV) error {
-		var event consumer.RowEvent
-		if err := text_utils.GobDecode(kv.Value, &event); err != nil {
-			return err
+		if errors.Is(err, utils.ErrForEachQuit) {
+			return
 		}
-		return callback(kv.Key, event)
-	})
+		s.logger.Error(fmt.Sprintf("[Storage]write %d events of %s error", l, events[0].Action), zap.Error(err))
+		return
+	}
 
-	return nextKey, err
+	s.Conf.AddEventCount(int64(l))
+	s.logger.Info(fmt.Sprintf("[Storage]wrote %d events of %s", l, events[0].Action), zap.Int64("latest event id", s.Conf.LatestEventID()))
+	return
 }
 
-func (s *Storage) DeleteEventsTo(toKey string) {
-	n, err := s.bolt.Bucket(common.StorageEvents).BatchDeleteRange("", toKey, "")
+func (s *Storage) AddCanalBinLogPosition(pos common.BinLogPosition) {
+	if pos.IsEmpty() {
+		return
+	}
+
+	// 将binlog加入到badger
+	key := common.BuildBinLogKey(s.Conf.AddLatestEventID(1), pos)
+	if err := s.db.Bucket(common.StorageBucket).Set(key, pos); err != nil {
+		s.logger.Error(fmt.Sprintf("[Storage]write binlog position \"%s\" error", key), zap.Error(err))
+	}
+
+	s.Conf.AddEventCount(1)
+
+	// 文件模式 需记录canal最后输出的pos
+	if !s.settings.StorageOptions.WorkInMemory {
+		s.Conf.UpdateCanalBinLogPosition(pos)
+	}
+
+	s.logger.Info("[Storage]canal binlog pos", zap.String("file", pos.File), zap.Uint32("position", pos.Position))
+}
+
+func (s *Storage) UpdateConsumeBinLogPosition(pos common.BinLogPosition) {
+	if pos.IsEmpty() {
+		return
+	}
+	// 内存模式下，canal的pos等于消费的pos
+	if s.settings.StorageOptions.WorkInMemory {
+		s.Conf.UpdateConsumeBinLogPosition(pos)
+		s.Conf.UpdateCanalBinLogPosition(pos)
+	} else {
+		s.Conf.UpdateConsumeBinLogPosition(pos)
+	}
+}
+
+func (s *Storage) EventForEach(keyStart string, callback func(key string, event consumer.RowEvent) error) (lastKey string, lastID int64, lastPos common.BinLogPosition, err error) {
+	if _, _, err = s.db.Bucket(common.StorageBucket).RangeCallback(keyStart, "", "", s.settings.TaskOptions.MaxBulkSize, func(txn *obadger.Txn, kv *utils.KV) error {
+		var err1 error
+		// 是 binlog position
+		if common.IsBinLogKey(kv.Key) {
+			if err1 = s.db.DecoderFunc(kv.Value, &lastPos); err != nil {
+				return err1
+			}
+		} else {
+			var event consumer.RowEvent
+			if err1 = s.db.DecoderFunc(kv.Value, &event); err1 != nil {
+				return err1
+			}
+			if err1 = callback(kv.Key, event); err1 != nil {
+				return err1
+			}
+		}
+
+		// 非错误的（含主动跳出）的key为最后遍历的key
+		lastKey = kv.Key
+		return nil
+	}); err != nil {
+		return
+	}
+
+	lastID = common.GetIDFromKey(lastKey)
+	return lastKey, lastID, lastPos, nil
+}
+
+func (s *Storage) DeleteEventsUtil(keyEnd string) {
+	n, err := s.db.Bucket(common.StorageBucket).DeleteRange("", keyEnd, "")
 	if err != nil {
 		s.logger.Error("[Storage]delete events error", zap.Error(err))
 	} else {
-		s.logger.Debug(fmt.Sprintf("[Storage]deleted %d events to key: %s", n, toKey))
+		s.Conf.AddEventCount(-n)
+		s.logger.Debug(fmt.Sprintf("[Storage]deleted %d events to key: %s", n, keyEnd))
 	}
+}
+
+func (s *Storage) tick() {
+	s.db.GC()
 }

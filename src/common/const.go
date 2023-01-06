@@ -8,10 +8,7 @@ const (
 	INCREMENTAL TaskMode = "incremental"
 )
 
-const PositionFilename = "master-info.yml"
-const BoltFilename = "data.db"
-
-const StorageTables = "tables"
-const StorageEvents = "events"
+const StorageConfFilename = "conf.yml"
+const StorageBucket = "storage"
 
 const LogCanalFilename = "canal.log"

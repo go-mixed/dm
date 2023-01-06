@@ -30,7 +30,7 @@ type TaskOptions struct {
 	Rules []*RuleOptions `yaml:"rules" validate:"required,gt=0"`
 
 	MaxWait     time.Duration `yaml:"max_wait"`
-	MaxBulkSize uint64        `yaml:"max_bulk_size"`
+	MaxBulkSize int64         `yaml:"max_bulk_size"`
 }
 
 func defaultTaskOptions() TaskOptions {

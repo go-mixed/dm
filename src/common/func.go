@@ -5,7 +5,9 @@ import (
 	"github.com/go-mysql-org/go-mysql/schema"
 	"golang.org/x/exp/constraints"
 	"gopkg.in/go-mixed/dm-consumer.v1"
+	"gopkg.in/go-mixed/go-common.v1/utils/conv"
 	"gopkg.in/go-mixed/go-common.v1/utils/text"
+	"regexp"
 	"strings"
 )
 
@@ -41,11 +43,39 @@ func CleanTableName(tableName string) string {
 	}
 }
 
-func BuildEventKey(id uint64, schema, table string, action string) string {
-	if schema == "" && table == "" {
-		return fmt.Sprintf("%020d/", id)
+func BuildKeyPrefix(id int64) string {
+	return fmt.Sprintf("%020d/", id)
+}
+func BuildEventKey(id int64, schema, table string, action string) string {
+	return fmt.Sprintf("%020d/event/%s/%s", id, BuildTableName(schema, table, nil), action)
+}
+func BuildBinLogKey(id int64, pos BinLogPosition) string {
+	return fmt.Sprintf("%020d/binlog/%s/%d", id, pos.File, pos.Position)
+}
+
+var keyPrefixRegexp = regexp.MustCompile(`^(\d{20})/`)
+
+func GetIDFromKey(key string) int64 {
+	if key == "" {
+		return 0
 	}
-	return fmt.Sprintf("%020d/%s/%s", id, BuildTableName(schema, table, nil), action)
+	if !keyPrefixRegexp.MatchString(key) {
+		return 0
+	}
+	segments := strings.SplitN(key, "/", 2)
+	return conv.Atoi64(segments[0], 0)
+}
+
+var binLogKeyRegexp = regexp.MustCompile(`^\d{20}/binlog/`)
+
+func IsBinLogKey(key string) bool {
+	return binLogKeyRegexp.MatchString(key)
+}
+
+var eventKeyRegexp = regexp.MustCompile(`^\d{20}/event/`)
+
+func IsEventKey(key string) bool {
+	return eventKeyRegexp.MatchString(key)
 }
 
 func Max[T constraints.Integer | constraints.Float](a, b T) T {

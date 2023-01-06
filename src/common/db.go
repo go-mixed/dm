@@ -64,8 +64,8 @@ func (c Columns) Names() []string {
 }
 
 type BinLogPosition struct {
-	File     string `yaml:"file" validate:"min=8"`
-	Position uint32 `yaml:"position" validate:"min=0"`
+	File     string `json:"file" yaml:"file" validate:"min=8"`
+	Position uint32 `json:"position" yaml:"position" validate:"min=0"`
 }
 
 func NewBinLogPositions(pos mysql.Position) BinLogPosition {

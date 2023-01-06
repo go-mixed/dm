@@ -12,6 +12,8 @@ type iCache struct {
 	client utils.IKV
 }
 
+var _ consumer.IKV = (*iCache)(nil)
+
 func ToConsumerIKV(c utils.IKV) consumer.IKV {
 	// struct 转为 interface后，nil需要反射判断
 	if core.IsInterfaceNil(c) {
@@ -38,6 +40,8 @@ func toConsumerKVs(kvs utils.KVs) consumer.KVs {
 
 	return _kvs
 }
+
+// 注意：如果下文是(i *iCache)，会在igop中报错
 
 func (i iCache) Get(key string, actual any) ([]byte, error) {
 	if i.client == nil {
@@ -122,4 +126,10 @@ func (i iCache) Del(key string) error {
 		panic(errors.New("client is nil in \"Del\""))
 	}
 	return i.client.Del(key)
+}
+
+func (i iCache) Batch(callback consumer.KVBatchFunc) error {
+	return i.client.Batch(func(client utils.IKV) error {
+		return callback(ToConsumerIKV(client))
+	})
 }

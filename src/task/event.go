@@ -25,7 +25,7 @@ func (t *Task) OnRow(e *canal.RowsEvent) error {
 	n := len(e.Rows)
 	var rowEvents []consumer.RowEvent
 
-	alias := t.Storage.SaveAndGetTableAlias(e.Table)
+	alias := t.Storage.UpdateAndGetTableAlias(e.Table)
 
 	switch e.Action {
 	case canal.InsertAction:
@@ -69,8 +69,8 @@ func (t *Task) OnRow(e *canal.RowsEvent) error {
 		}
 	}
 
-	t.Storage.SaveEvents(rowEvents)
-	t.trigger.OnCountChanged(t.Storage.EventCount())
+	t.Storage.AddEvents(rowEvents)
+	t.trigger.OnCountChanged(t.Storage.Conf.EventCount())
 	return nil
 }
 
@@ -83,9 +83,6 @@ func (t *Task) OnGTID(gtid mysql.GTIDSet) error {
 }
 
 func (t *Task) OnPosSynced(pos mysql.Position, set mysql.GTIDSet, force bool) error {
-	_pos := common.NewBinLogPositions(pos)
-	t.Storage.SaveBinLogPosition(_pos)
-	t.binLog = _pos
-
+	t.Storage.AddCanalBinLogPosition(common.NewBinLogPositions(pos))
 	return nil
 }
