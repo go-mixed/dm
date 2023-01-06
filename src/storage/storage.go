@@ -136,7 +136,7 @@ func (s *Storage) AddEvents(events []consumer.RowEvent) {
 	}
 
 	s.Conf.AddEventCount(int64(l))
-	s.logger.Info(fmt.Sprintf("[Storage]wrote %d events of %s", l, events[0].Action), zap.Int64("latest event id", s.Conf.LatestEventID()))
+	s.logger.Debug(fmt.Sprintf("[Storage]wrote %d events of %s", l, events[0].Action), zap.Int64("latest event id", s.Conf.LatestEventID()))
 	return
 }
 
@@ -158,7 +158,7 @@ func (s *Storage) AddCanalBinLogPosition(pos common.BinLogPosition) {
 		s.Conf.UpdateCanalBinLogPosition(pos)
 	}
 
-	s.logger.Info("[Storage]canal binlog pos", zap.String("file", pos.File), zap.Uint32("position", pos.Position))
+	s.logger.Debug("[Storage]canal binlog pos", zap.String("file", pos.File), zap.Uint32("position", pos.Position))
 }
 
 func (s *Storage) UpdateConsumeBinLogPosition(pos common.BinLogPosition) {
@@ -220,4 +220,5 @@ func (s *Storage) DeleteEventsUtil(keyEnd string) {
 func (s *Storage) tick() {
 	s.logger.Info("badger GC")
 	s.db.GC()
+	s.logger.Info("badger GC completed")
 }

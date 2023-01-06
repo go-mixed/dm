@@ -174,6 +174,8 @@ func (t *Task) consumer(ctx context.Context, taskId uint64) {
 	}
 
 	t.Logger.Info("[Task]consumed",
+		zap.String("consume binlog", lastConsumePos.File),
+		zap.Uint32("consume binlog position", lastConsumePos.Position),
 		zap.String("start key", startKey),
 		zap.String("end key", endKey),
 		zap.Int("event count", c),
