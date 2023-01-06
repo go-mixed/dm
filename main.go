@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/google/gops/agent"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"gopkg.in/go-mixed/dm.v1/src/component"
@@ -14,10 +15,15 @@ import (
 	"gopkg.in/go-mixed/go-common.v1/logger.v1"
 	"gopkg.in/go-mixed/go-common.v1/utils/core"
 	"gopkg.in/go-mixed/go-common.v1/utils/io"
+	"log"
 	"path/filepath"
 )
 
 func main() {
+	if err := agent.Listen(agent.Options{}); err != nil {
+		log.Fatal(err)
+	}
+
 	currentDir := io_utils.GetCurrentDir()
 	rootCmd := &cobra.Command{
 		Use:   "dm",

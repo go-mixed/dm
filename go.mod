@@ -6,6 +6,7 @@ require (
 	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/go-mysql-org/go-mysql v1.6.0
 	github.com/go-sql-driver/mysql v1.7.0
+	github.com/google/gops v0.3.26
 	github.com/goplus/igop v0.9.6
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/pingcap/errors v0.11.5-0.20201126102027-b0a155152ca3
@@ -16,7 +17,7 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/exp v0.0.0-20230105000112-eab7a2c85304
 	gopkg.in/go-mixed/dm-consumer.v1 v1.0.0-20230105115846-f4c2fad289e3
-	gopkg.in/go-mixed/go-common.v1  v1.0.0-20230106140321-ff2dd408d7f7
+	gopkg.in/go-mixed/go-common.v1 v1.0.0-20230106140321-ff2dd408d7f7
 	gopkg.in/go-mixed/go-common.v1/badger.v1 v1.0.0-20230106140321-ff2dd408d7f7
 	gopkg.in/go-mixed/go-common.v1/cmd.v1 v1.0.0-20230106140321-ff2dd408d7f7
 	gopkg.in/go-mixed/go-common.v1/conf.v1 v1.0.0-20230106140321-ff2dd408d7f7
