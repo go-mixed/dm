@@ -95,20 +95,23 @@ func (t *Task) consumer(ctx context.Context, taskId uint64) {
 		return
 	}
 
-	// 触发消费之后的的数量
-	defer t.trigger.OnCountChanged(t.Storage.Conf.EventCount())
+	defer func() { // 必须运行在函数中，不然t.Storage.Conf.EventCount()会在consumer函数进入时就计算了
+		// 触发消费之后的的数量
+		t.trigger.OnCountChanged(t.Storage.Conf.EventCount())
+	}()
 
 	t.Logger.Info("[Task]need to consume",
 		zap.Int64("latest event id", t.Storage.Conf.LatestEventID()),
 		zap.Int64("next consume event id", t.Storage.Conf.NextConsumeEventID()),
 		zap.Int64("event remain count", count),
 	)
+	now := time.Now()
 
 	// 将同一个rule的events分配在一起
 	var lastRule *settings.RuleOptions
 	var events []consumer.RowEvent
 
-	lastKey, lastID, lastConsumePos, err := t.Storage.EventForEach(common.BuildKeyPrefix(t.Storage.Conf.NextConsumeEventID()), func(key string, event consumer.RowEvent) error {
+	startKey, endKey, lastConsumePos, err := t.Storage.EventForEach(common.BuildKeyPrefix(t.Storage.Conf.NextConsumeEventID()), func(key string, event consumer.RowEvent) error {
 		select {
 		case <-ctx.Done():
 			return utils.ErrForEachQuit
@@ -143,7 +146,12 @@ func (t *Task) consumer(ctx context.Context, taskId uint64) {
 
 	c := len(events)
 	if c > 0 {
-		now := time.Now()
+		t.Logger.Info("[Task]call igop",
+			zap.String("method", lastRule.Call),
+			zap.Int64("start ID", events[0].ID),
+			zap.Int64("end ID", events[c-1].ID),
+			zap.Int("event count", c),
+		)
 		methodErr, panicErr := igopCall(t.igopCtx, lastRule.Call, []igop.Value{events, lastRule.Arguments})
 		_methodErr, _ := methodErr.(error)
 		err = multierr.Append(_methodErr, panicErr)
@@ -155,21 +163,20 @@ func (t *Task) consumer(ctx context.Context, taskId uint64) {
 			)
 			return
 		}
-
-		t.Logger.Info("[Task]executed igop",
-			zap.String("method", lastRule.Call),
-			zap.Int64("start id", events[0].ID),
-			zap.Int64("end id", events[c-1].ID),
-			zap.Int("count", c),
-			zap.Duration("duration", time.Since(now)),
-		)
 	}
 
 	t.Storage.UpdateConsumeBinLogPosition(lastConsumePos)
-	if lastKey != "" {
-		t.Storage.DeleteEventsUtil(lastKey) // 删除开头~lastKey（含）的keys
+	if endKey != "" {
+		t.Storage.DeleteEventsUtil(endKey) // 删除开头~endKey（含）的keys
 	}
-	if lastID != 0 {
-		t.Storage.Conf.UpdateNextConsumeEventID(lastID + 1)
+	if endID := common.GetIDFromKey(endKey); endID != 0 {
+		t.Storage.Conf.UpdateNextConsumeEventID(endID + 1)
 	}
+
+	t.Logger.Info("[Task]consumed",
+		zap.String("start key", startKey),
+		zap.String("end key", endKey),
+		zap.Int("event count", c),
+		zap.Duration("duration", time.Since(now)),
+	)
 }

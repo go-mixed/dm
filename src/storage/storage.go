@@ -174,14 +174,16 @@ func (s *Storage) UpdateConsumeBinLogPosition(pos common.BinLogPosition) {
 	}
 }
 
-func (s *Storage) EventForEach(keyStart string, callback func(key string, event consumer.RowEvent) error) (lastKey string, lastID int64, lastPos common.BinLogPosition, err error) {
+func (s *Storage) EventForEach(keyStart string, callback func(key string, event consumer.RowEvent) error) (startKey, endKey string, lastPos common.BinLogPosition, err error) {
+	var pos common.BinLogPosition
 	if _, _, err = s.db.Bucket(common.StorageBucket).RangeCallback(keyStart, "", "", s.settings.TaskOptions.MaxBulkSize, func(txn *obadger.Txn, kv *utils.KV) error {
 		var err1 error
 		// 是 binlog position
 		if common.IsBinLogKey(kv.Key) {
-			if err1 = s.db.DecoderFunc(kv.Value, &lastPos); err != nil {
+			if err1 = s.db.DecoderFunc(kv.Value, &pos); err != nil {
 				return err1
 			}
+			lastPos = pos
 		} else {
 			var event consumer.RowEvent
 			if err1 = s.db.DecoderFunc(kv.Value, &event); err1 != nil {
@@ -192,15 +194,17 @@ func (s *Storage) EventForEach(keyStart string, callback func(key string, event 
 			}
 		}
 
+		if startKey == "" {
+			startKey = kv.Key
+		}
 		// 非错误的（含主动跳出）的key为最后遍历的key
-		lastKey = kv.Key
+		endKey = kv.Key
 		return nil
 	}); err != nil {
-		return
+		return "", "", common.BinLogPosition{}, err
 	}
 
-	lastID = common.GetIDFromKey(lastKey)
-	return lastKey, lastID, lastPos, nil
+	return startKey, endKey, lastPos, nil
 }
 
 func (s *Storage) DeleteEventsUtil(keyEnd string) {
@@ -214,5 +218,6 @@ func (s *Storage) DeleteEventsUtil(keyEnd string) {
 }
 
 func (s *Storage) tick() {
+	s.logger.Info("badger GC")
 	s.db.GC()
 }
