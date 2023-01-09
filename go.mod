@@ -17,12 +17,12 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/exp v0.0.0-20230105000112-eab7a2c85304
 	gopkg.in/go-mixed/dm-consumer.v1 v1.0.0-20230105115846-f4c2fad289e3
-	gopkg.in/go-mixed/go-common.v1 v1.0.0-20230106140321-ff2dd408d7f7
-	gopkg.in/go-mixed/go-common.v1/badger.v1 v1.0.0-20230106140321-ff2dd408d7f7
-	gopkg.in/go-mixed/go-common.v1/cmd.v1 v1.0.0-20230106140321-ff2dd408d7f7
-	gopkg.in/go-mixed/go-common.v1/conf.v1 v1.0.0-20230106140321-ff2dd408d7f7
-	gopkg.in/go-mixed/go-common.v1/logger.v1 v1.0.0-20230106140321-ff2dd408d7f7
-	gopkg.in/go-mixed/go-common.v1/redis.v1 v1.0.0-20230106140321-ff2dd408d7f7
+	gopkg.in/go-mixed/go-common.v1 v1.0.0-20230109111538-56c5ce1f7100
+	gopkg.in/go-mixed/go-common.v1/badger.v1 v1.0.0-20230109111538-56c5ce1f7100
+	gopkg.in/go-mixed/go-common.v1/cmd.v1 v1.0.0-20230109111538-56c5ce1f7100
+	gopkg.in/go-mixed/go-common.v1/conf.v1 v1.0.0-20230109111538-56c5ce1f7100
+	gopkg.in/go-mixed/go-common.v1/logger.v1 v1.0.0-20230109111538-56c5ce1f7100
+	gopkg.in/go-mixed/go-common.v1/redis.v1 v1.0.0-20230109111538-56c5ce1f7100
 	gopkg.in/go-mixed/igop.v1 v1.0.2
 	gopkg.in/yaml.v3 v3.0.1
 )
