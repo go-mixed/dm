@@ -11,14 +11,14 @@ type StorageOptions struct {
 	GCTimer       time.Duration `yaml:"gc_timer"`
 	ConfSyncTimer time.Duration `yaml:"conf_sync_timer"`
 
-	WorkInMemory bool `yaml:"work_in_memory"`
+	MemoryMode bool `yaml:"memory_mode"`
 }
 
 func defaultStorageOptions() StorageOptions {
 	return StorageOptions{
 		Dir:           filepath.Join(io_utils.GetCurrentDir(), "storage"),
-		GCTimer:       5 * time.Minute,
+		GCTimer:       1 * time.Minute,
 		ConfSyncTimer: 30 * time.Second,
-		WorkInMemory:  false,
+		MemoryMode:    false,
 	}
 }

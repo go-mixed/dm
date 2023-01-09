@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
-	"gopkg.in/go-mixed/dm-consumer.v1"
+	consumer "gopkg.in/go-mixed/dm-consumer.v1"
 	"gopkg.in/go-mixed/dm.v1/src/canal"
 	"gopkg.in/go-mixed/dm.v1/src/common"
 	"gopkg.in/go-mixed/dm.v1/src/component"
@@ -101,9 +101,9 @@ func (t *Task) consumer(ctx context.Context, taskId uint64) {
 	}()
 
 	t.Logger.Info("[Task]need to consume",
-		zap.Int64("latest event id", t.Storage.Conf.LatestEventID()),
-		zap.Int64("next consume event id", t.Storage.Conf.NextConsumeEventID()),
-		zap.Int64("event remain count", count),
+		zap.Int64("latest id", t.Storage.Conf.LatestEventID()),
+		zap.Int64("next consume id", t.Storage.Conf.NextConsumeEventID()),
+		zap.Int64("remain", count),
 	)
 	now := time.Now()
 
@@ -148,9 +148,9 @@ func (t *Task) consumer(ctx context.Context, taskId uint64) {
 	if c > 0 {
 		t.Logger.Info("[Task]call igop",
 			zap.String("method", lastRule.Call),
-			zap.Int64("start ID", events[0].ID),
-			zap.Int64("end ID", events[c-1].ID),
-			zap.Int("event count", c),
+			zap.Int64("start id", events[0].ID),
+			zap.Int64("end id", events[c-1].ID),
+			zap.Int("count", c),
 		)
 		methodErr, panicErr := igopCall(t.igopCtx, lastRule.Call, []igop.Value{events, lastRule.Arguments})
 		_methodErr, _ := methodErr.(error)
@@ -167,18 +167,18 @@ func (t *Task) consumer(ctx context.Context, taskId uint64) {
 
 	t.Storage.UpdateConsumeBinLogPosition(lastConsumePos)
 	if endKey != "" {
-		t.Storage.DeleteEventsUtil(endKey) // 删除开头~endKey（含）的keys
+		t.Storage.DeleteEventsUtil(endKey) // 删除 开头~endKey（含） 的keys
 	}
 	if endID := common.GetIDFromKey(endKey); endID != 0 {
 		t.Storage.Conf.UpdateNextConsumeEventID(endID + 1)
 	}
 
 	t.Logger.Info("[Task]consumed",
-		zap.String("consume binlog", lastConsumePos.File),
-		zap.Uint32("consume binlog position", lastConsumePos.Position),
+		zap.Any("consume", t.Storage.Conf.ConsumeBinLogPosition()),
+		zap.Any("canal", t.Storage.Conf.CanalBinLogPosition()),
 		zap.String("start key", startKey),
 		zap.String("end key", endKey),
-		zap.Int("event count", c),
+		zap.Int("count", c),
 		zap.Duration("duration", time.Since(now)),
 	)
 }

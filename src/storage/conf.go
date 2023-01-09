@@ -15,11 +15,13 @@ import (
 )
 
 type conf struct {
-	// 最后一条修改的binlog，如果是内存模式，重启后使用此pos
+	// 最后一条消费的binlog，内存模式启动时使用此pos
 	consumeBinLogPosition common.BinLogPosition
-	// canal得到的最后一条binlog，如果文件模式，重启后使用此pos
-	// 当启动内存模式后，此项会和latestConsumeBinLogPosition相同，以免之后切换成文件模式后，读取的pos错误
+	// 最后一条canal的binlog，文件模式启动时使用此pos
+	// 如果上次是内存模式，启动时会将canalBinLogPosition设置为consumeBinLogPosition
 	canalBinLogPosition common.BinLogPosition
+	// 记录当前模式
+	memoryMode bool
 	// 每条event都有自增ID
 	latestEventID atomic.Int64
 	// 由于使用的延时删除，所以需要记录下一个消费的ID
@@ -38,6 +40,7 @@ type savedConf struct {
 	CanalBinLogPosition   common.BinLogPosition `json:"canal_bin_log_position" yaml:"canal_bin_log_position"`
 	LatestEventID         int64                 `json:"latest_event_id" yaml:"latest_event_id"`
 	NextConsumeEventID    int64                 `json:"next_consume_event_id" yaml:"next_consume_event_id"`
+	MemoryMode            bool                  `json:"memory_mode" yaml:"memory_mode"`
 	At                    time.Time             `json:"at" yaml:"at"`
 }
 
@@ -47,6 +50,7 @@ func buildConf(logger *logger.Logger) conf {
 		latestEventID:         atomic.Int64{},
 		nextConsumeEventID:    atomic.Int64{},
 		eventCount:            atomic.Int64{},
+		memoryMode:            false,
 		logger:                logger,
 	}
 }
@@ -68,7 +72,7 @@ func (c *conf) Close() error {
 	return nil
 }
 
-func (c *conf) load() {
+func (c *conf) load(currentMemoryMode bool) {
 	c.fd.Seek(0, io.SeekStart)
 	buf, err := io.ReadAll(c.fd)
 	if err != nil {
@@ -87,18 +91,25 @@ func (c *conf) load() {
 	}
 
 	c.from(sc)
+
+	// 如果上次启动是内存模式，则不存在历史events
+	// 将canal的position修正为consume的position，以便从正确的position开始dump
+	if c.memoryMode {
+		c.canalBinLogPosition = c.consumeBinLogPosition
+	}
+
+	// 修改为当前模式
+	c.memoryMode = currentMemoryMode
 }
 
 func (c *conf) sync() {
 	c.fd.Sync()
 
 	c.logger.Info("[StorageConf]saved",
-		zap.String("latest consume file", c.consumeBinLogPosition.File),
-		zap.Uint32("latest consume position", c.consumeBinLogPosition.Position),
-		zap.String("latest canal file", c.canalBinLogPosition.File),
-		zap.Uint32("latest canal position", c.canalBinLogPosition.Position),
-		zap.Int64("latest event id", c.LatestEventID()),
-		zap.Int64("next consumed event id", c.NextConsumeEventID()),
+		zap.Any("consume", c.consumeBinLogPosition),
+		zap.Any("canal", c.canalBinLogPosition),
+		zap.Int64("event id", c.LatestEventID()),
+		zap.Int64("next consume id", c.NextConsumeEventID()),
 	)
 }
 
@@ -109,7 +120,10 @@ func (c *conf) save() {
 		return
 	}
 
-	c.fd.Truncate(int64(len(buf)))
+	currentLen, _ := c.fd.Seek(0, io.SeekEnd)
+	if int64(len(buf)) > currentLen {
+		c.fd.Truncate(int64(len(buf)))
+	}
 	c.fd.Seek(0, io.SeekStart)
 
 	if _, err = c.fd.Write(buf); err != nil {
@@ -144,6 +158,14 @@ func (c *conf) UpdateCanalBinLogPosition(position common.BinLogPosition) {
 	c.save()
 }
 
+func (c *conf) CanalBinLogPosition() common.BinLogPosition {
+	return c.canalBinLogPosition
+}
+
+func (c *conf) ConsumeBinLogPosition() common.BinLogPosition {
+	return c.consumeBinLogPosition
+}
+
 func (c *conf) NextConsumeEventID() int64 {
 	return c.nextConsumeEventID.Load()
 }
@@ -161,6 +183,7 @@ func (c *conf) from(sc savedConf) {
 	c.consumeBinLogPosition = sc.ConsumeBinLogPosition
 	c.latestEventID.Store(sc.LatestEventID)
 	c.nextConsumeEventID.Store(sc.NextConsumeEventID)
+	c.memoryMode = sc.MemoryMode
 }
 
 func (c *conf) to() savedConf {
@@ -169,6 +192,7 @@ func (c *conf) to() savedConf {
 		ConsumeBinLogPosition: c.consumeBinLogPosition,
 		LatestEventID:         c.LatestEventID(),
 		NextConsumeEventID:    c.NextConsumeEventID(),
+		MemoryMode:            c.memoryMode,
 		At:                    time.Now(),
 	}
 }

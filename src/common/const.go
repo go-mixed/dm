@@ -9,6 +9,6 @@ const (
 )
 
 const StorageConfFilename = "conf.yml"
-const StorageBucket = "storage"
+const StorageEventBucket = "events"
 
 const LogCanalFilename = "canal.log"

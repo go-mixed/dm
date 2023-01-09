@@ -32,7 +32,7 @@ type Storage struct {
 
 func NewStorage(settings *settings.Settings, logger *logger.Logger) (*Storage, error) {
 	// 运行在内存中的lsm树
-	db := badger.NewBadger(filepath.Join(settings.StorageOptions.Dir, "data"), logger.Sugar(), settings.StorageOptions.WorkInMemory).SetEncoderFunc(text_utils.GobEncode).SetDecoderFunc(text_utils.GobDecode)
+	db := badger.NewBadger(filepath.Join(settings.StorageOptions.Dir, "data"), logger.Sugar(), settings.StorageOptions.MemoryMode).SetEncoderFunc(text_utils.GobEncode).SetDecoderFunc(text_utils.GobDecode)
 
 	s := &Storage{
 		settings: settings,
@@ -46,11 +46,11 @@ func NewStorage(settings *settings.Settings, logger *logger.Logger) (*Storage, e
 }
 
 func (s *Storage) Initial() error {
-	eventCount := s.db.Bucket(common.StorageBucket).Count() // 读取badger中剩余的数据
+	eventCount := s.db.Bucket(common.StorageEventBucket).Count() // 读取badger中剩余的数据
 	if err := s.Conf.Initial(s.settings.StorageOptions, eventCount); err != nil {
 		return err
 	}
-	s.Conf.load()
+	s.Conf.load(s.settings.StorageOptions.MemoryMode)
 
 	s.timer = time_utils.NewTicker(s.settings.StorageOptions.GCTimer, s.tick)
 
@@ -66,7 +66,7 @@ func (s *Storage) GetLatestBinLogPosition(currentBinLog common.BinLogPosition) c
 	var newPos common.BinLogPosition
 
 	// 内存模式取latestConsumeBinLogPosition，文件模式取latestCanalBinLogPosition
-	if s.settings.StorageOptions.WorkInMemory {
+	if s.settings.StorageOptions.MemoryMode {
 		newPos = s.Conf.consumeBinLogPosition
 	} else {
 		newPos = s.Conf.canalBinLogPosition
@@ -109,7 +109,7 @@ func (s *Storage) AddEvents(events []consumer.RowEvent) {
 		return
 	}
 
-	if err := s.db.Bucket(common.StorageBucket).Update(func(txn *obadger.Txn) error {
+	if err := s.db.Bucket(common.StorageEventBucket).Update(func(txn *obadger.Txn) error {
 		for _, event := range events {
 			id := s.Conf.AddLatestEventID(1)
 			key := common.BuildEventKey(id, event.Schema, event.Table, event.Action)
@@ -147,16 +147,12 @@ func (s *Storage) AddCanalBinLogPosition(pos common.BinLogPosition) {
 
 	// 将binlog加入到badger
 	key := common.BuildBinLogKey(s.Conf.AddLatestEventID(1), pos)
-	if err := s.db.Bucket(common.StorageBucket).Set(key, pos); err != nil {
+	if err := s.db.Bucket(common.StorageEventBucket).Set(key, pos); err != nil {
 		s.logger.Error(fmt.Sprintf("[Storage]write binlog position \"%s\" error", key), zap.Error(err))
 	}
 
 	s.Conf.AddEventCount(1)
-
-	// 文件模式 需记录canal最后输出的pos
-	if !s.settings.StorageOptions.WorkInMemory {
-		s.Conf.UpdateCanalBinLogPosition(pos)
-	}
+	s.Conf.UpdateCanalBinLogPosition(pos)
 
 	s.logger.Debug("[Storage]canal binlog pos", zap.String("file", pos.File), zap.Uint32("position", pos.Position))
 }
@@ -165,18 +161,13 @@ func (s *Storage) UpdateConsumeBinLogPosition(pos common.BinLogPosition) {
 	if pos.IsEmpty() {
 		return
 	}
-	// 内存模式下，canal的pos等于消费的pos
-	if s.settings.StorageOptions.WorkInMemory {
-		s.Conf.UpdateConsumeBinLogPosition(pos)
-		s.Conf.UpdateCanalBinLogPosition(pos)
-	} else {
-		s.Conf.UpdateConsumeBinLogPosition(pos)
-	}
+
+	s.Conf.UpdateConsumeBinLogPosition(pos)
 }
 
 func (s *Storage) EventForEach(keyStart string, callback func(key string, event consumer.RowEvent) error) (startKey, endKey string, lastPos common.BinLogPosition, err error) {
 	var pos common.BinLogPosition
-	if _, _, err = s.db.Bucket(common.StorageBucket).RangeCallback(keyStart, "", "", s.settings.TaskOptions.MaxBulkSize, func(txn *obadger.Txn, kv *utils.KV) error {
+	if _, _, err = s.db.Bucket(common.StorageEventBucket).RangeCallback(keyStart, "", "", s.settings.TaskOptions.MaxBulkSize, func(txn *obadger.Txn, kv *utils.KV) error {
 		var err1 error
 		// 是 binlog position
 		if common.IsBinLogKey(kv.Key) {
@@ -208,7 +199,7 @@ func (s *Storage) EventForEach(keyStart string, callback func(key string, event 
 }
 
 func (s *Storage) DeleteEventsUtil(keyEnd string) {
-	n, err := s.db.Bucket(common.StorageBucket).DeleteRange("", keyEnd, "")
+	n, err := s.db.Bucket(common.StorageEventBucket).DeleteRange("", keyEnd, "")
 	if err != nil {
 		s.logger.Error("[Storage]delete events error", zap.Error(err))
 	} else {
