@@ -16,8 +16,7 @@ type Trigger struct {
 
 	triggerCallback func(context.Context, uint64)
 
-	queueCount atomic.Int32
-	queue      chan struct{}
+	queue chan struct{}
 }
 
 const triggerMaxQueueSize = 10
@@ -27,7 +26,7 @@ const triggerMaxQueueSize = 10
 //	同一时刻，只会执行1个触发的任务，任务均运行在一个协程中
 //	1. 当maxCount触发的任务时，时间触发条件会从该任务【启动时】开始重新计算；当maxWait触发的任务执行完毕时，不影响继续触发maxCount；
 //	2. 当数量为0时，不会触发任务。
-//	为什么不使用sync/singleflight的原因：singleflight正在运行任务时，会阻塞OnCountChanged的调用，而dm业务不允许阻塞（可以通过新建协程OnCountChanged来避免，但是在高峰期时会导致海量协程被创建）。并且dm业务是可以丢弃重复的触发，只需要遵循按时和按量一个条件即可
+//	为什么不使用sync/singleflight的原因：singleflight正在运行任务时，会阻塞OnCountChanged的调用，而dm业务中OnCountChanged调用不允许阻塞（虽然可以通过go OnCountChanged来避免，但是在高峰期时会导致海量协程被创建）。并且dm业务是可以丢弃重复的触发，只需要遵循按时和按量一个条件即可
 func NewSingleFlightTrigger(maxCount int64, maxWait time.Duration, triggerCallback func(context.Context, uint64)) *Trigger {
 	return &Trigger{
 		lastTrigger:  time.Time{},
@@ -38,8 +37,7 @@ func NewSingleFlightTrigger(maxCount int64, maxWait time.Duration, triggerCallba
 
 		triggerCallback: triggerCallback,
 
-		queueCount: atomic.Int32{},
-		queue:      make(chan struct{}, triggerMaxQueueSize),
+		queue: make(chan struct{}, triggerMaxQueueSize),
 	}
 }
 
@@ -60,6 +58,7 @@ func (t *Trigger) Run(ctx context.Context) {
 		}
 	}()
 
+	// 和上面分开的原因：t.triggerCallback是阻塞运行的，所以分开后，上面的计时器不会阻塞，更准确
 	for {
 		select {
 		case <-ctx.Done(): // 放前面，先触发
@@ -70,15 +69,15 @@ func (t *Trigger) Run(ctx context.Context) {
 				t.lastTrigger = time.Now()
 				t.triggerCallback(ctx, t.lastID.Add(1))
 			}
-			t.queueCount.Add(-1) // 减去消耗的任务
 		}
 	}
 }
 
 func (t *Trigger) addQueue() {
-	if t.queueCount.Load() < triggerMaxQueueSize { // 有剩余的ch
-		t.queue <- struct{}{}
-		t.queueCount.Add(1) // 增加任务
+	select {
+	case t.queue <- struct{}{}: // 能够插入
+	default: // 否则跳过
+
 	}
 }
 

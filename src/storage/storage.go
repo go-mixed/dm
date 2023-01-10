@@ -52,7 +52,7 @@ func (s *Storage) Initial() error {
 	}
 	s.Conf.load(s.settings.StorageOptions.MemoryMode)
 
-	s.timer = time_utils.NewTicker(s.settings.StorageOptions.GCTimer, s.tick)
+	s.timer = time_utils.NewTicker(s.settings.StorageOptions.GCTimer, s.tick, 1)
 
 	return nil
 }

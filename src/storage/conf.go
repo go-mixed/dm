@@ -57,7 +57,7 @@ func buildConf(logger *logger.Logger) conf {
 
 func (c *conf) Initial(options settings.StorageOptions, eventCount int64) (err error) {
 	c.fd, err = os.OpenFile(filepath.Join(options.Dir, common.StorageConfFilename), os.O_CREATE|os.O_RDWR, 0o644)
-	c.ticker = time_utils.NewTicker(options.ConfSyncTimer, c.sync)
+	c.ticker = time_utils.NewTicker(options.ConfSyncTimer, c.sync, 1)
 	c.eventCount.Store(eventCount)
 	return
 }
@@ -121,7 +121,7 @@ func (c *conf) save() {
 	}
 
 	currentLen, _ := c.fd.Seek(0, io.SeekEnd)
-	if int64(len(buf)) > currentLen {
+	if int64(len(buf)) < currentLen {
 		c.fd.Truncate(int64(len(buf)))
 	}
 	c.fd.Seek(0, io.SeekStart)

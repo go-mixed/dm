@@ -31,12 +31,16 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			config, _ := cmd.PersistentFlags().GetString("config")
 			log, _ := cmd.PersistentFlags().GetString("log")
+			if !cmd.PersistentFlags().Changed("log") {
+				log = ""
+			}
 			run(config, log)
 		},
 	}
 
 	// 读取CLI
 	rootCmd.PersistentFlags().StringP("config", "c", filepath.Join(currentDir, "conf/settings.yml"), "config file")
+	rootCmd.PersistentFlags().String("log", filepath.Join(currentDir, "logs/app.log"), "log file")
 	err := rootCmd.Execute()
 	if err != nil {
 		panic(err.Error())
