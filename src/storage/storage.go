@@ -26,8 +26,10 @@ type Storage struct {
 
 	tables map[string]*schema.Table
 
-	Conf  conf
-	timer *time_utils.Ticker
+	PositionStatus  positionStatus
+	gcTicker        *time_utils.Ticker
+	flushTicker     *time_utils.Ticker
+	lastConsumedKey string
 }
 
 func NewStorage(settings *settings.Settings, logger *logger.Logger) (*Storage, error) {
@@ -40,25 +42,34 @@ func NewStorage(settings *settings.Settings, logger *logger.Logger) (*Storage, e
 		db:       db,
 		tables:   make(map[string]*schema.Table),
 
-		Conf: buildConf(logger),
+		PositionStatus: buildPositionStatus(logger),
 	}
 	return s, nil
 }
 
 func (s *Storage) Initial() error {
 	eventCount := s.db.Bucket(common.StorageEventBucket).Count() // 读取badger中剩余的数据
-	if err := s.Conf.Initial(s.settings.StorageOptions, eventCount); err != nil {
+	if err := s.PositionStatus.Initial(s.settings.StorageOptions, eventCount); err != nil {
 		return err
 	}
-	s.Conf.load(s.settings.StorageOptions.MemoryMode)
+	s.PositionStatus.load(s.settings.StorageOptions.MemoryMode)
 
-	s.timer = time_utils.NewTicker(s.settings.StorageOptions.GCTimer, s.tick, 1)
+	s.gcTicker = time_utils.NewTicker(s.settings.StorageOptions.GCInterval, s.gcHandle, 1)
+	if !s.settings.StorageOptions.IsImmediateFlush() {
+		s.flushTicker = time_utils.NewTicker(s.settings.StorageOptions.FlushInterval, s.flushHandle, 1)
+	}
 
 	return nil
 }
 
 func (s *Storage) Close() error {
-	err := s.Conf.Close()
+	if s.flushTicker != nil {
+		s.flushTicker.Stop()
+	}
+	if s.gcTicker != nil {
+		s.gcTicker.Stop()
+	}
+	err := s.PositionStatus.Close()
 	return multierr.Append(err, s.db.Close())
 }
 
@@ -67,9 +78,9 @@ func (s *Storage) GetLatestBinLogPosition(currentBinLog common.BinLogPosition) c
 
 	// 内存模式取latestConsumeBinLogPosition，文件模式取latestCanalBinLogPosition
 	if s.settings.StorageOptions.MemoryMode {
-		newPos = s.Conf.consumeBinLogPosition
+		newPos = s.PositionStatus.consumeBinLogPosition
 	} else {
-		newPos = s.Conf.canalBinLogPosition
+		newPos = s.PositionStatus.canalBinLogPosition
 	}
 
 	if newPos.GreaterThan(currentBinLog) {
@@ -111,7 +122,7 @@ func (s *Storage) AddEvents(events []consumer.RowEvent) {
 
 	if err := s.db.Bucket(common.StorageEventBucket).Update(func(txn *obadger.Txn) error {
 		for _, event := range events {
-			id := s.Conf.AddLatestEventID(1)
+			id := s.PositionStatus.AddLatestEventID(1)
 			key := common.BuildEventKey(id, event.Schema, event.Table, event.Action)
 			event.ID = id
 
@@ -135,8 +146,8 @@ func (s *Storage) AddEvents(events []consumer.RowEvent) {
 		return
 	}
 
-	s.Conf.AddEventCount(int64(l))
-	s.logger.Debug(fmt.Sprintf("[Storage]wrote %d events of %s", l, events[0].Action), zap.Int64("latest event id", s.Conf.LatestEventID()))
+	s.PositionStatus.AddEventCount(int64(l))
+	s.logger.Debug(fmt.Sprintf("[Storage]wrote %d events of %s", l, events[0].Action), zap.Int64("latest event id", s.PositionStatus.LatestEventID()))
 	return
 }
 
@@ -146,13 +157,13 @@ func (s *Storage) AddCanalBinLogPosition(pos common.BinLogPosition) {
 	}
 
 	// 将binlog加入到badger
-	key := common.BuildBinLogKey(s.Conf.AddLatestEventID(1), pos)
+	key := common.BuildBinLogKey(s.PositionStatus.AddLatestEventID(1), pos)
 	if err := s.db.Bucket(common.StorageEventBucket).Set(key, pos); err != nil {
 		s.logger.Error(fmt.Sprintf("[Storage]write binlog position \"%s\" error", key), zap.Error(err))
 	}
 
-	s.Conf.AddEventCount(1)
-	s.Conf.UpdateCanalBinLogPosition(pos)
+	s.PositionStatus.AddEventCount(1)
+	s.PositionStatus.UpdateCanalBinLogPosition(pos)
 
 	s.logger.Debug("[Storage]canal binlog pos", zap.String("file", pos.File), zap.Uint32("position", pos.Position))
 }
@@ -162,7 +173,7 @@ func (s *Storage) UpdateConsumeBinLogPosition(pos common.BinLogPosition) {
 		return
 	}
 
-	s.Conf.UpdateConsumeBinLogPosition(pos)
+	s.PositionStatus.UpdateConsumeBinLogPosition(pos)
 }
 
 func (s *Storage) EventForEach(keyStart string, callback func(key string, event consumer.RowEvent) error) (startKey, endKey string, lastPos common.BinLogPosition, err error) {
@@ -203,12 +214,24 @@ func (s *Storage) DeleteEventsUtil(keyEnd string) {
 	if err != nil {
 		s.logger.Error("[Storage]delete events error", zap.Error(err))
 	} else {
-		s.Conf.AddEventCount(-n)
-		s.logger.Debug(fmt.Sprintf("[Storage]deleted %d events to key: %s", n, keyEnd))
+		s.PositionStatus.AddEventCount(-n)
+		s.logger.Info(fmt.Sprintf("[Storage]deleted %d events to key: %s", n, keyEnd))
 	}
 }
 
-func (s *Storage) tick() {
+func (s *Storage) FlushTo(keyEnd string) {
+	s.lastConsumedKey = keyEnd
+
+	if s.settings.StorageOptions.IsImmediateFlush() {
+		s.flushHandle()
+	}
+}
+
+func (s *Storage) flushHandle() {
+	s.DeleteEventsUtil(s.lastConsumedKey)
+}
+
+func (s *Storage) gcHandle() {
 	s.logger.Info("badger GC")
 	s.db.GC()
 	s.logger.Info("badger GC completed")

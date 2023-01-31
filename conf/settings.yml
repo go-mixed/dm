@@ -8,8 +8,8 @@ mysql:
 
     username: "canal"
     password: "Your Password"
-    timezone: Asia/Shanghai
-    server_id: 10001 # the server id of mysql slave
+    timezone: "Asia/Shanghai"
+    server_id: 10001 # the server id of this canal client
     charset: utf8
     flavor: mysql # mysql, mariadb
 
@@ -18,13 +18,21 @@ targets:
     addrs: ["127.0.0.1:6379"]
     password: ""
 
+storage: # the config of the events storage engine
+  dir: "storage/" # storage directory
+  memory_mode: false # the storage mode of the engine, true for memory, false for disk
+
+  gc_interval: 1m  # how often to shrink the storage engine, 0 for disable
+  position_status_sync_interval: 30s # how often to sync the status of position to disk
+  flush_interval: 0ms # how often to flush(delete) the consumed events in storage, 0 for immediately, other for delay delete
+
 task:
   task_mode: incremental
   max_wait: 100ms  # Maximum waiting time between 2 jobs
   max_bulk_size: 1000 # Maximum events size for 1 job
   script_dir: "scripts"
 
-  binlog:
+  binlog: # Synchronize with this binlog position
     file: mysql-bin.000001
     position: 0
 
@@ -32,4 +40,4 @@ task:
     - schema: test_db
       table: test_table
       call: "Consumer"
-      args:
+      args: []

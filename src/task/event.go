@@ -70,7 +70,7 @@ func (t *Task) OnRow(e *canal.RowsEvent) error {
 	}
 
 	t.Storage.AddEvents(rowEvents)
-	t.trigger.OnCountChanged(t.Storage.Conf.EventCount())
+	t.trigger.OnCountChanged(t.Storage.PositionStatus.EventCount())
 	return nil
 }
 

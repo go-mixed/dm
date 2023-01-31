@@ -8,7 +8,7 @@ const (
 	INCREMENTAL TaskMode = "incremental"
 )
 
-const StorageConfFilename = "conf.yml"
+const StoragePositionStatusFilename = "position-status.yml"
 const StorageEventBucket = "events"
 
 const LogCanalFilename = "canal.log"

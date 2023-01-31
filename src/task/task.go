@@ -55,7 +55,7 @@ func (t *Task) Run(ctx context.Context) {
 	go t.runCanal(ctx)
 
 	// 启动时 需要触发数量
-	t.trigger.OnCountChanged(t.Storage.Conf.EventCount())
+	t.trigger.OnCountChanged(t.Storage.PositionStatus.EventCount())
 
 	// 触发器阻塞运行, t.consumer运行于当前Run的协程
 	// 当ctx退出时，t.consumer在读取event阶段时，也会强制退出（并且不消耗bolt的events），但如果在igop call阶段，无法强制退出
@@ -90,19 +90,19 @@ func (t *Task) runCanal(ctx context.Context) {
 
 // 消费events
 func (t *Task) consumer(ctx context.Context, taskId uint64) {
-	count := t.Storage.Conf.EventCount()
+	count := t.Storage.PositionStatus.EventCount()
 	if count <= 0 {
 		return
 	}
 
-	defer func() { // 必须运行在函数中，不然t.Storage.Conf.EventCount()会在consumer函数进入时就计算了
+	defer func() { // 必须运行在函数中，不然t.Storage.PositionStatus.EventCount()会在consumer函数进入时就计算了
 		// 触发消费之后的的数量
-		t.trigger.OnCountChanged(t.Storage.Conf.EventCount())
+		t.trigger.OnCountChanged(t.Storage.PositionStatus.EventCount())
 	}()
 
 	t.Logger.Info("[Task]need to consume",
-		zap.Int64("latest id", t.Storage.Conf.LatestEventID()),
-		zap.Int64("next consume id", t.Storage.Conf.NextConsumeEventID()),
+		zap.Int64("latest id", t.Storage.PositionStatus.LatestEventID()),
+		zap.Int64("next consume id", t.Storage.PositionStatus.NextConsumeEventID()),
 		zap.Int64("remain", count),
 	)
 	now := time.Now()
@@ -111,7 +111,7 @@ func (t *Task) consumer(ctx context.Context, taskId uint64) {
 	var lastRule *settings.RuleOptions
 	var events []consumer.RowEvent
 
-	startKey, endKey, lastConsumePos, err := t.Storage.EventForEach(common.BuildKeyPrefix(t.Storage.Conf.NextConsumeEventID()), func(key string, event consumer.RowEvent) error {
+	startKey, endKey, lastConsumePos, err := t.Storage.EventForEach(common.BuildKeyPrefix(t.Storage.PositionStatus.NextConsumeEventID()), func(key string, event consumer.RowEvent) error {
 		select {
 		case <-ctx.Done():
 			return utils.ErrForEachQuit
@@ -167,15 +167,15 @@ func (t *Task) consumer(ctx context.Context, taskId uint64) {
 
 	t.Storage.UpdateConsumeBinLogPosition(lastConsumePos)
 	if endKey != "" {
-		t.Storage.DeleteEventsUtil(endKey) // 删除 开头~endKey（含） 的keys
+		t.Storage.FlushTo(endKey) // 删除 开头~endKey（含） 的keys
 	}
 	if endID := common.GetIDFromKey(endKey); endID != 0 {
-		t.Storage.Conf.UpdateNextConsumeEventID(endID + 1)
+		t.Storage.PositionStatus.UpdateNextConsumeEventID(endID + 1)
 	}
 
 	t.Logger.Info("[Task]consumed",
-		zap.Any("consume", t.Storage.Conf.ConsumeBinLogPosition()),
-		zap.Any("canal", t.Storage.Conf.CanalBinLogPosition()),
+		zap.Any("consume", t.Storage.PositionStatus.ConsumeBinLogPosition()),
+		zap.Any("canal", t.Storage.PositionStatus.CanalBinLogPosition()),
 		zap.String("start key", startKey),
 		zap.String("end key", endKey),
 		zap.Int("count", c),
